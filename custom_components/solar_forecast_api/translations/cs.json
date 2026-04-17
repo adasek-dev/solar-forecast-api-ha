@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Solar Forecast API",
+        "description": "Nastavte připojení k vašemu Solar Forecast API serveru.",
+        "data": {
+          "name": "Název (např. Jih, Východ+Západ)",
+          "api_url": "URL API serveru (např. http://192.168.1.100:5001)",
+          "api_key": "API klíč (volitelné)",
+          "latitude": "Zeměpisná šířka",
+          "longitude": "Zeměpisná délka",
+          "declination": "Sklon panelů [°] (0=horiz., 90=vertik.)",
+          "azimuth": "Azimut [°] forecast.solar konvence (0=jih, -90=východ, 90=západ)",
+          "kwp": "Instalovaný výkon [kWp]"
+        }
+      },
+      "plane2": {
+        "title": "Druhé pole panelů (volitelné)",
+        "description": "Pokud máte panely na dvou stranách střechy, zadejte parametry druhého pole. Jinak nechte prázdné.",
+        "data": {
+          "second_plane": "Přidat druhé pole panelů?",
+          "declination_2": "Sklon 2. pole [°]",
+          "azimuth_2": "Azimut 2. pole [°]",
+          "kwp_2": "Výkon 2. pole [kWp]"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit k API serveru",
+      "invalid_response": "Neplatná odpověď z API serveru"
+    },
+    "abort": {
+      "already_configured": "Tato konfigurace již existuje"
+    }
+  }
+}
