@@ -2,23 +2,23 @@
   "config": {
     "step": {
       "user": {
-        "title": "Solar Forecast API",
-        "description": "Enter basic parameters and number of strings.",
+        "title": "Solar Forecast API – basic setup",
+        "description": "Enter basic parameters and the number of strings.",
         "data": {
           "name": "Name",
-          "api_key": "API key (optional, for calibration)",
+          "api_key": "API key (optional)",
           "latitude": "Latitude",
           "longitude": "Longitude",
           "string_count": "Number of strings (1–10)",
           "update_interval": "Update interval"
         },
         "data_description": {
-          "api_key": "Without an API key only the 60-minute interval is available.",
+          "api_key": "Without API key: max 12 req/hour, 60-min interval only, no weather data.",
           "update_interval": "Without an API key only 60 minutes is available."
         }
       },
       "string": {
-        "title": "String {index} of {total} configuration",
+        "title": "String {index} of {total}",
         "description": "Enter parameters for string {index}.",
         "data": {
           "str_name": "String name (e.g. East, West, South)",
@@ -28,6 +28,20 @@
           "str_actual_entity": "Daily production sensor for calibration (optional)",
           "str_correction": "Correction factor (optional, 0.1–2.0; empty = auto)"
         }
+      },
+      "advanced": {
+        "title": "Advanced settings",
+        "description": "Configure API calculation behaviour.",
+        "data": {
+          "days": "Forecast days",
+          "resolution": "Calculation resolution",
+          "damping": "Morning/evening damping (0 = off, 1 = maximum)",
+          "no_horizon": "Disable PVGIS horizon (not recommended)"
+        },
+        "data_description": {
+          "resolution": "15-minute resolution requires an API key.",
+          "damping": "Reduces estimated output at low solar angles. 0.5 is recommended."
+        }
       }
     },
     "error": {
@@ -36,17 +50,6 @@
     },
     "abort": {
       "already_configured": "This configuration already exists"
-    }
-  },
-  "selector": {
-    "update_interval": {
-      "options": {
-        "5": "5 minutes",
-        "15": "15 minutes",
-        "30": "30 minutes",
-        "45": "45 minutes",
-        "60": "60 minutes"
-      }
     }
   }
 }

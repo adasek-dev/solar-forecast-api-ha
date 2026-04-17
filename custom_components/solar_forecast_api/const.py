@@ -8,12 +8,16 @@ CONF_LATITUDE = "latitude"
 CONF_LONGITUDE = "longitude"
 CONF_NAME = "name"
 CONF_UPDATE_INTERVAL = "update_interval"
+CONF_DAYS = "days"
+CONF_DAMPING = "damping"
+CONF_NO_HORIZON = "no_horizon"
+CONF_RESOLUTION = "resolution"
 
 # Per-string config keys (up to 10 strings)
 MAX_STRINGS = 10
 CONF_STRING_COUNT = "string_count"
 
-# These are the FORM field keys used in the string step (static, for translations)
+# Static form field keys (displayed in UI, translated)
 CONF_STR_NAME = "str_name"
 CONF_STR_DECLINATION = "str_declination"
 CONF_STR_AZIMUTH = "str_azimuth"
@@ -58,6 +62,7 @@ CONF_ACTUAL_ENTITY = "actual_entity"
 CONF_CORRECTION = "correction"
 
 DEFAULT_NAME = "Solar Forecast"
-UPDATE_INTERVAL = 3600  # default 60 minut
+UPDATE_INTERVAL = 3600       # default 60 minut v sekundách
 
-INTERVAL_OPTIONS = [5, 15, 30, 45, 60]  # minuty
+INTERVAL_OPTIONS = [5, 15, 30, 45, 60]   # minuty
+DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7]

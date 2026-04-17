@@ -2,31 +2,45 @@
   "config": {
     "step": {
       "user": {
-        "title": "Solar Forecast API",
+        "title": "Solar Forecast API – základní nastavení",
         "description": "Zadejte základní parametry a počet stringů.",
         "data": {
           "name": "Název",
-          "api_key": "API klíč (volitelné, pro kalibraci)",
+          "api_key": "API klíč (volitelné)",
           "latitude": "Zeměpisná šířka",
           "longitude": "Zeměpisná délka",
           "string_count": "Počet stringů (1–10)",
           "update_interval": "Interval aktualizace"
         },
         "data_description": {
-          "api_key": "Bez API klíče je dostupný pouze interval 60 minut.",
+          "api_key": "Bez API klíče: max 12 dotazů/hod, interval pouze 60 min, bez počasí.",
           "update_interval": "Bez API klíče lze zvolit pouze 60 minut."
         }
       },
       "string": {
-        "title": "Konfigurace stringu {index} z {total}",
+        "title": "String {index} z {total}",
         "description": "Zadejte parametry pro string č. {index}.",
         "data": {
-          "str_name": "Název stringu (např. Vychod, Západ, Jih)",
+          "str_name": "Název stringu (např. Východ, Západ, Jih)",
           "str_declination": "Sklon panelů [°] (0 = horizont., 90 = vertik.)",
           "str_azimuth": "Azimut [°] (0 = jih, −90 = východ, 90 = západ)",
           "str_wp": "Instalovaný výkon [Wp]",
           "str_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
           "str_correction": "Korekční faktor (volitelné, 0.1–2.0; nevyplněno = automaticky)"
+        }
+      },
+      "advanced": {
+        "title": "Pokročilé nastavení",
+        "description": "Nastavte chování API výpočtu.",
+        "data": {
+          "days": "Počet dní předpovědi",
+          "resolution": "Rozlišení výpočtu",
+          "damping": "Tlumení ráno/večer (0 = vypnuto, 1 = maximální)",
+          "no_horizon": "Vypnout PVGIS horizont (nedoporučeno)"
+        },
+        "data_description": {
+          "resolution": "15minutové rozlišení vyžaduje API klíč.",
+          "damping": "Snižuje odhadovaný výkon při nízkém slunečním úhlu. Hodnota 0.5 je doporučená."
         }
       }
     },
@@ -36,17 +50,6 @@
     },
     "abort": {
       "already_configured": "Tato konfigurace již existuje"
-    }
-  },
-  "selector": {
-    "update_interval": {
-      "options": {
-        "5": "5 minut",
-        "15": "15 minut",
-        "30": "30 minut",
-        "45": "45 minut",
-        "60": "60 minut"
-      }
     }
   }
 }

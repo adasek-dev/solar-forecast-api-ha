@@ -24,15 +24,18 @@ from .const import (
     CONF_NAME,
     CONF_STRING_COUNT,
     CONF_UPDATE_INTERVAL,
+    CONF_DAYS,
+    CONF_DAMPING,
+    CONF_NO_HORIZON,
+    CONF_RESOLUTION,
     INTERVAL_OPTIONS,
-    # Static form field keys
+    DAYS_OPTIONS,
     CONF_STR_NAME,
     CONF_STR_DECLINATION,
     CONF_STR_AZIMUTH,
     CONF_STR_WP,
     CONF_STR_ACTUAL_ENTITY,
     CONF_STR_CORRECTION,
-    # Storage key builders
     conf_string_name,
     conf_declination,
     conf_azimuth,
@@ -75,14 +78,13 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Step 1: Basic config + number of strings + update interval."""
+        """Step 1: Basic config."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             api_key = user_input.get(CONF_API_KEY, "").strip()
-            interval_min = user_input.get(CONF_UPDATE_INTERVAL, 60)
+            interval_min = int(user_input.get(CONF_UPDATE_INTERVAL, 60))
 
-            # Without API key only 60 min is allowed
             if not api_key and interval_min != 60:
                 errors[CONF_UPDATE_INTERVAL] = "interval_requires_key"
             elif not await validate_api(DEFAULT_API_URL):
@@ -96,7 +98,7 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_LATITUDE: user_input[CONF_LATITUDE],
                     CONF_LONGITUDE: user_input[CONF_LONGITUDE],
                     CONF_STRING_COUNT: self._string_count,
-                    CONF_UPDATE_INTERVAL: interval_min * 60,  # store as seconds
+                    CONF_UPDATE_INTERVAL: interval_min * 60,
                 }
                 self._current_string = 1
                 return await self.async_step_string()
@@ -104,7 +106,6 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         default_lat = self.hass.config.latitude
         default_lon = self.hass.config.longitude
 
-        # Interval selector options
         interval_options = [
             selector.SelectOptionDict(value=str(m), label=f"{m} minut")
             for m in INTERVAL_OPTIONS
@@ -125,7 +126,6 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         selector.SelectSelectorConfig(
                             options=interval_options,
                             mode=selector.SelectSelectorMode.LIST,
-                            translation_key=CONF_UPDATE_INTERVAL,
                         )
                     ),
                 }
@@ -136,11 +136,10 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_string(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Step per string: declination, azimuth, Wp, optional entity+correction."""
+        """Step per string."""
         i = self._current_string
 
         if user_input is not None:
-            # Map static form keys -> storage keys with index
             self._data[conf_string_name(i)] = user_input.get(CONF_STR_NAME, f"String {i}")
             self._data[conf_declination(i)] = user_input[CONF_STR_DECLINATION]
             self._data[conf_azimuth(i)] = user_input[CONF_STR_AZIMUTH]
@@ -161,10 +160,7 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._current_string += 1
                 return await self.async_step_string()
             else:
-                return self.async_create_entry(
-                    title=self._data.get(CONF_NAME, DEFAULT_NAME),
-                    data=self._data,
-                )
+                return await self.async_step_advanced()
 
         return self.async_show_form(
             step_id="string",
@@ -195,6 +191,60 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         None,
                         vol.All(vol.Coerce(float), vol.Range(min=0.0, max=2.0)),
                     ),
+                }
+            ),
+        )
+
+    async def async_step_advanced(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Step 3: Advanced API options."""
+        if user_input is not None:
+            days = int(user_input.get(CONF_DAYS, 4))
+            self._data[CONF_DAYS] = days
+            self._data[CONF_DAMPING] = float(user_input.get(CONF_DAMPING, 0.0))
+            self._data[CONF_NO_HORIZON] = bool(user_input.get(CONF_NO_HORIZON, False))
+
+            # Resolution 15 min jen s API klíčem
+            resolution = int(user_input.get(CONF_RESOLUTION, 60))
+            if not self._has_api_key:
+                resolution = 60
+            self._data[CONF_RESOLUTION] = resolution
+
+            return self.async_create_entry(
+                title=self._data.get(CONF_NAME, DEFAULT_NAME),
+                data=self._data,
+            )
+
+        days_options = [
+            selector.SelectOptionDict(value=str(d), label=f"{d} {'den' if d == 1 else 'dny' if d < 5 else 'dní'}")
+            for d in DAYS_OPTIONS
+        ]
+        resolution_options = [
+            selector.SelectOptionDict(value="60", label="60 minut (standardní)"),
+            selector.SelectOptionDict(value="15", label="15 minut (vyžaduje API klíč)"),
+        ]
+
+        return self.async_show_form(
+            step_id="advanced",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_DAYS, default=4): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=days_options,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Required(CONF_RESOLUTION, default=60): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=resolution_options,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Optional(CONF_DAMPING, default=0.0): vol.All(
+                        vol.Coerce(float), vol.Range(min=0.0, max=1.0)
+                    ),
+                    vol.Optional(CONF_NO_HORIZON, default=False): bool,
                 }
             ),
         )
