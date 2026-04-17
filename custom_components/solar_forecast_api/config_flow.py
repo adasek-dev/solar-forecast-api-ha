@@ -92,7 +92,7 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Coerce(float), vol.Range(min=-180, max=180)
                     ),
                     vol.Required(CONF_KWP, default=5.0): vol.All(
-                        vol.Coerce(float), vol.Range(min=0.1, max=1000)
+                        vol.Coerce(float), vol.Range(min=0.1, max=1000000)
                     ),
                 }
             ),
@@ -135,7 +135,7 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Coerce(float), vol.Range(min=-180, max=180)
                     ),
                     vol.Optional(CONF_KWP_2, default=5.0): vol.All(
-                        vol.Coerce(float), vol.Range(min=0.1, max=1000)
+                        vol.Coerce(float), vol.Range(min=0.1, max=1000000)
                     ),
                     vol.Optional(CONF_ACTUAL_ENTITY, default=""): selector.EntitySelector(
                         selector.EntitySelectorConfig(
