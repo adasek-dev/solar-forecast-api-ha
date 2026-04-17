@@ -50,7 +50,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-# ─── API helpers ────────────────────────────────────────────────────────────
+# ─── API helpers ─────────────────────────────────────────────────────────────
 
 async def validate_api(url: str) -> bool:
     """Check that the API server is reachable."""
@@ -60,86 +60,90 @@ async def validate_api(url: str) -> bool:
                 f"{url}/health", timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status == 200:
-                    return (await resp.json()).get("status") == "ok"
+                    return (await resp.json(content_type=None)).get("status") == "ok"
     except Exception:
         pass
     return False
 
 
-async def fetch_key_features(url: str, api_key: str) -> list[str] | None:
+async def fetch_key_info(url: str, api_key: str) -> dict | None:
     """
-    Return list of features for the given API key, or None if the key is invalid.
-    Uses a single estimate call to verify the key, then tests weather + timewindows.
-    Deliberately minimal – only 1 rate-limit slot consumed for estimate.
+    Call /info/:apikey and return {features, name, rate_limit}.
+    Returns None if the key is invalid or the endpoint doesn't exist.
+    Falls back to feature-probing if /info is not available.
     """
     base = url.rstrip("/")
-    # Minimal valid params: lat=50, lon=16, dec=35, az=0, kwp=1
-    est_url = f"{base}/estimate/{api_key}/50.0/16.0/35/0/1.0?days=1"
-    wx_url  = f"{base}/weather/{api_key}/50.0/16.0?days=1"
-    tw_url  = f"{base}/timewindows/{api_key}/50.0/16.0/35/0/1.0?days=1"
-
-    features: list[str] = []
     timeout = aiohttp.ClientTimeout(total=15)
 
     try:
         async with aiohttp.ClientSession() as session:
-            # ── 1. Verify key via estimate ──────────────────────────────
-            async with session.get(est_url, timeout=timeout) as resp:
+            # ── Try the dedicated /info endpoint first ──────────────────
+            async with session.get(
+                f"{base}/info/{api_key}", timeout=timeout
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    # Expected: {"features": [...], "name": "...", "rate_limit": 100}
+                    if "features" in data:
+                        _LOGGER.debug("Key info via /info: %s", data)
+                        return data
+                elif resp.status == 403 or resp.status == 404:
+                    # /info exists but key is invalid, OR /info doesn't exist yet
+                    # Try a single estimate call to verify key validity
+                    pass
+
+            # ── Fallback: verify via /estimate ──────────────────────────
+            async with session.get(
+                f"{base}/estimate/{api_key}/50.0/16.0/35/0/1.0?days=1",
+                timeout=timeout,
+            ) as resp:
                 body = await resp.json(content_type=None)
                 if resp.status == 403:
                     msg = body.get("message", "")
-                    if "Neplatný" in msg or "nvalid" in msg or "neplatný" in msg.lower():
-                        _LOGGER.debug("API key rejected: %s", msg)
-                        return None   # genuinely invalid key
-                    # Other 403 = some other restriction, key may still be valid
+                    if "Neplatný" in msg or "nvalid" in msg:
+                        return None  # genuinely invalid key
+                    # Some other 403 – key might still work
                 elif resp.status == 429:
-                    # Rate-limited but key is valid – assume basic features
-                    _LOGGER.debug("Rate limited during feature detection, assuming basic features")
-                    return ["actual", "calibration"]
-                elif resp.status == 200:
-                    features += ["actual", "calibration"]
-                else:
+                    # Rate-limited → key valid, assume basic features
+                    _LOGGER.debug("Rate limited, assuming basic features")
+                    return {"features": ["actual", "calibration"], "name": "", "rate_limit": 12}
+                elif resp.status != 200:
                     _LOGGER.warning("Unexpected status %s from estimate", resp.status)
-                    return ["actual", "calibration"]   # be optimistic
+                    return {"features": ["actual", "calibration"], "name": "", "rate_limit": 12}
 
-            # ── 2. Test weather feature ─────────────────────────────────
-            try:
-                async with session.get(wx_url, timeout=timeout) as resp:
-                    body = await resp.json(content_type=None)
-                    if resp.status == 200:
-                        features.append(FEATURE_WEATHER)
-                    elif resp.status == 403:
-                        msg = body.get("message", "")
-                        # "nemá povolen" = key valid but no weather
-                        # "Neplatný" = would have been caught above already
-                        _LOGGER.debug("Weather feature not available: %s", msg)
-            except Exception as e:
-                _LOGGER.debug("Weather feature check failed: %s", e)
+            # Key is valid – now probe weather and timewindows
+            features = ["actual", "calibration"]
 
-            # ── 3. Test timewindows feature ─────────────────────────────
-            try:
-                async with session.get(tw_url, timeout=timeout) as resp:
-                    body = await resp.json(content_type=None)
-                    if resp.status == 200:
-                        features.append(FEATURE_TIMEWINDOWS)
-                    elif resp.status == 403:
-                        _LOGGER.debug("Timewindows feature not available: %s",
-                                      body.get("message", ""))
-            except Exception as e:
-                _LOGGER.debug("Timewindows feature check failed: %s", e)
+            async with session.get(
+                f"{base}/weather/{api_key}/50.0/16.0?days=1", timeout=timeout
+            ) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    features.append(FEATURE_WEATHER)
+                elif resp.status == 403:
+                    msg = body.get("message", "")
+                    if "Neplatný" in msg:
+                        return None
+                    # "nemá povolen" → weather not available
+
+            async with session.get(
+                f"{base}/timewindows/{api_key}/50.0/16.0/35/0/1.0?days=1", timeout=timeout
+            ) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    features.append(FEATURE_TIMEWINDOWS)
+
+            return {"features": features, "name": "", "rate_limit": 100}
 
     except aiohttp.ClientError as err:
         _LOGGER.warning("Feature detection network error: %s", err)
-        # Network error – don't block setup, return basic features
-        return ["actual", "calibration"]
+        return {"features": ["actual", "calibration"], "name": "", "rate_limit": 12}
     except Exception as err:
         _LOGGER.warning("Feature detection unexpected error: %s", err)
-        return ["actual", "calibration"]
-
-    _LOGGER.debug("Detected features for key: %s", features)
-    return features
+        return {"features": ["actual", "calibration"], "name": "", "rate_limit": 12}
 
 
+# ─── Schema helpers ───────────────────────────────────────────────────────────
 
 def _interval_options() -> list[selector.SelectOptionDict]:
     return [
@@ -161,23 +165,26 @@ def _resolution_options() -> list[selector.SelectOptionDict]:
     ]
 
 
+def _string_count_options() -> list[selector.SelectOptionDict]:
+    return [
+        selector.SelectOptionDict(value=str(i), label=str(i))
+        for i in range(1, MAX_STRINGS + 1)
+    ]
+
+
 def _save_string(data: dict, i: int, user_input: dict, has_actual: bool) -> None:
-    """Save one string's form values into data dict."""
     data[conf_string_name(i)] = user_input.get(CONF_STR_NAME, f"String {i}")
     data[conf_declination(i)] = user_input[CONF_STR_DECLINATION]
     data[conf_azimuth(i)] = user_input[CONF_STR_AZIMUTH]
     data[conf_wp(i)] = user_input[CONF_STR_WP]
-
     if has_actual:
         entity = user_input.get(CONF_STR_ACTUAL_ENTITY) or ""
         if entity:
             data[conf_actual_entity(i)] = entity
         else:
             data.pop(conf_actual_entity(i), None)
-
-        raw = user_input.get(CONF_STR_CORRECTION)
         try:
-            val = float(raw) if raw is not None else 0.0
+            val = float(user_input.get(CONF_STR_CORRECTION) or 0)
         except (ValueError, TypeError):
             val = 0.0
         if val > 0:
@@ -187,7 +194,6 @@ def _save_string(data: dict, i: int, user_input: dict, has_actual: bool) -> None
 
 
 def _string_schema(i: int, defaults: dict, has_actual: bool) -> vol.Schema:
-    """Build the voluptuous schema for one string step."""
     fields: dict = {
         vol.Optional(CONF_STR_NAME, default=defaults.get(conf_string_name(i), f"String {i}")): str,
         vol.Required(CONF_STR_DECLINATION, default=defaults.get(conf_declination(i), 35)): vol.All(
@@ -211,8 +217,9 @@ def _string_schema(i: int, defaults: dict, has_actual: bool) -> vol.Schema:
 
 
 def _advanced_schema(defaults: dict) -> vol.Schema:
+    # All SelectSelector defaults MUST be str
     return vol.Schema({
-        vol.Required(CONF_DAYS, default=defaults.get(CONF_DAYS, 4)): selector.SelectSelector(
+        vol.Required(CONF_DAYS, default=str(defaults.get(CONF_DAYS, 4))): selector.SelectSelector(
             selector.SelectSelectorConfig(options=_days_options(), mode=selector.SelectSelectorMode.LIST)
         ),
         vol.Required(CONF_RESOLUTION, default=str(defaults.get(CONF_RESOLUTION, 60))): selector.SelectSelector(
@@ -225,23 +232,41 @@ def _advanced_schema(defaults: dict) -> vol.Schema:
     })
 
 
-# ─── Config Flow ────────────────────────────────────────────────────────────
+def _basic_schema(defaults: dict) -> vol.Schema:
+    """Schema for options init step – string count as SelectSelector (no slider)."""
+    current_min = defaults.get(CONF_UPDATE_INTERVAL, 3600) // 60
+    return vol.Schema({
+        vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): str,
+        vol.Optional(CONF_API_KEY, default=defaults.get(CONF_API_KEY, "")): str,
+        vol.Required(CONF_STRING_COUNT, default=str(defaults.get(CONF_STRING_COUNT, 1))): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=_string_count_options(),
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Required(CONF_UPDATE_INTERVAL, default=str(current_min)): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=_interval_options(),
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+    })
+
+
+# ─── Config Flow ──────────────────────────────────────────────────────────────
 
 class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Solar Forecast API."""
 
     VERSION = 2
 
-    # ── Required: expose options flow ──────────────────────────────────────
     @staticmethod
     @config_entries.callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> "SolarForecastOptionsFlow":
-        """Return the options flow handler."""
         return SolarForecastOptionsFlow(config_entry)
 
-    # ── Internal state ──────────────────────────────────────────────────────
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._current_string: int = 1
@@ -249,7 +274,6 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._has_api_key: bool = False
         self._api_features: list[str] = []
 
-    # ── Step 1: basic ───────────────────────────────────────────────────────
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -265,11 +289,11 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 if api_key:
-                    features = await fetch_key_features(DEFAULT_API_URL, api_key)
-                    if features is None:
+                    key_info = await fetch_key_info(DEFAULT_API_URL, api_key)
+                    if key_info is None:
                         errors[CONF_API_KEY] = "invalid_api_key"
                     else:
-                        self._api_features = features
+                        self._api_features = key_info.get("features", [])
                         self._has_api_key = True
                 else:
                     self._api_features = []
@@ -302,10 +326,13 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_API_KEY, default=""): str,
                 vol.Required(CONF_LATITUDE, default=default_lat): cv.latitude,
                 vol.Required(CONF_LONGITUDE, default=default_lon): cv.longitude,
-                vol.Required(CONF_STRING_COUNT, default=1): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=MAX_STRINGS)
+                vol.Required(CONF_STRING_COUNT, default="1"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=_string_count_options(),
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
                 ),
-                vol.Required(CONF_UPDATE_INTERVAL, default=60): selector.SelectSelector(
+                vol.Required(CONF_UPDATE_INTERVAL, default="60"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=_interval_options(),
                         mode=selector.SelectSelectorMode.LIST,
@@ -315,7 +342,6 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    # ── Step 2: string(s) ───────────────────────────────────────────────────
     async def async_step_string(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -335,18 +361,11 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=_string_schema(i, self._data, has_actual),
         )
 
-    # ── Step 3: advanced ────────────────────────────────────────────────────
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        # Without API key → skip with safe defaults
         if not self._has_api_key:
-            self._data.update({
-                CONF_DAYS: 1,
-                CONF_RESOLUTION: 60,
-                CONF_DAMPING: 0.0,
-                CONF_NO_HORIZON: False,
-            })
+            self._data.update({CONF_DAYS: 1, CONF_RESOLUTION: 60, CONF_DAMPING: 0.0, CONF_NO_HORIZON: False})
             return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
         if user_input is not None:
@@ -366,13 +385,12 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-# ─── Options Flow ────────────────────────────────────────────────────────────
+# ─── Options Flow ─────────────────────────────────────────────────────────────
 
 class SolarForecastOptionsFlow(config_entries.OptionsFlow):
     """Allow reconfiguring an existing entry without deleting it."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        # Work on a mutable copy of the current full config
         self._data: dict[str, Any] = {**config_entry.data, **config_entry.options}
         self._current_string: int = 1
         self._string_count: int = self._data.get(CONF_STRING_COUNT, 1)
@@ -380,7 +398,6 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
         self._api_features: list[str] = self._data.get(CONF_API_FEATURES, [])
         self._old_api_key: str = self._data.get(CONF_API_KEY, "")
 
-    # ── Options step 1: basic ───────────────────────────────────────────────
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -393,15 +410,18 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
             if not api_key and interval_min != 60:
                 errors[CONF_UPDATE_INTERVAL] = "interval_requires_key"
             else:
-                # Re-fetch features only if key changed
                 if api_key and api_key != self._old_api_key:
-                    features = await fetch_key_features(DEFAULT_API_URL, api_key)
-                    if features is None:
+                    # Key changed → re-fetch features
+                    key_info = await fetch_key_info(DEFAULT_API_URL, api_key)
+                    if key_info is None:
                         errors[CONF_API_KEY] = "invalid_api_key"
                     else:
-                        self._api_features = features
+                        self._api_features = key_info.get("features", [])
                         self._has_api_key = True
-                elif not api_key:
+                elif api_key:
+                    # Same key – keep existing features
+                    self._has_api_key = True
+                else:
                     self._api_features = []
                     self._has_api_key = False
 
@@ -420,27 +440,12 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
                     self._current_string = 1
                     return await self.async_step_string()
 
-        current_min = self._data.get(CONF_UPDATE_INTERVAL, 3600) // 60
-
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default=self._data.get(CONF_NAME, DEFAULT_NAME)): str,
-                vol.Optional(CONF_API_KEY, default=self._data.get(CONF_API_KEY, "")): str,
-                vol.Required(CONF_STRING_COUNT, default=self._string_count): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=MAX_STRINGS)
-                ),
-                vol.Required(CONF_UPDATE_INTERVAL, default=current_min): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=_interval_options(),
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
+            data_schema=_basic_schema(self._data),
             errors=errors,
         )
 
-    # ── Options step 2: string(s) ───────────────────────────────────────────
     async def async_step_string(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -460,17 +465,11 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
             data_schema=_string_schema(i, self._data, has_actual),
         )
 
-    # ── Options step 3: advanced ────────────────────────────────────────────
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if not self._has_api_key:
-            self._data.update({
-                CONF_DAYS: 1,
-                CONF_RESOLUTION: 60,
-                CONF_DAMPING: 0.0,
-                CONF_NO_HORIZON: False,
-            })
+            self._data.update({CONF_DAYS: 1, CONF_RESOLUTION: 60, CONF_DAMPING: 0.0, CONF_NO_HORIZON: False})
             return self.async_create_entry(title="", data=self._data)
 
         if user_input is not None:
