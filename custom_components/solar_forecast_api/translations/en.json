@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Solar Forecast API – basic setup",
-        "description": "Enter basic parameters and the number of strings.",
+        "description": "Enter basic parameters. Without API key: 1 string, 1 day forecast, 60-min interval.",
         "data": {
           "name": "Name",
           "api_key": "API key (optional)",
@@ -13,8 +13,8 @@
           "update_interval": "Update interval"
         },
         "data_description": {
-          "api_key": "Without API key: max 12 req/hour, 60-min interval only, no weather data.",
-          "update_interval": "Without an API key only 60 minutes is available."
+          "api_key": "After entering a key, available features (weather, calibration, timewindows) are loaded automatically.",
+          "string_count": "Without an API key only 1 string is allowed."
         }
       },
       "string": {
@@ -31,7 +31,7 @@
       },
       "advanced": {
         "title": "Advanced settings",
-        "description": "Configure API calculation behaviour.",
+        "description": "Available features for your API key: {features}",
         "data": {
           "days": "Forecast days",
           "resolution": "Calculation resolution",
@@ -39,17 +39,60 @@
           "no_horizon": "Disable PVGIS horizon (not recommended)"
         },
         "data_description": {
-          "resolution": "15-minute resolution requires an API key.",
           "damping": "Reduces estimated output at low solar angles. 0.5 is recommended."
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to the API server forecast.xnas.cz",
-      "interval_requires_key": "Intervals shorter than 60 minutes require an API key."
+      "interval_requires_key": "Intervals shorter than 60 minutes require an API key.",
+      "invalid_api_key": "Invalid API key or key has no permitted features."
     },
     "abort": {
       "already_configured": "This configuration already exists"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit settings",
+        "description": "Change name, API key, number of strings or update interval.",
+        "data": {
+          "name": "Name",
+          "api_key": "API key (optional)",
+          "string_count": "Number of strings (1–10)",
+          "update_interval": "Update interval"
+        },
+        "data_description": {
+          "api_key": "Changing the key will re-fetch available features from the API."
+        }
+      },
+      "string": {
+        "title": "String {index} of {total}",
+        "description": "Edit parameters for string {index}.",
+        "data": {
+          "str_name": "String name",
+          "str_declination": "Panel tilt [°]",
+          "str_azimuth": "Azimuth [°]",
+          "str_wp": "Installed power [Wp]",
+          "str_actual_entity": "Daily production sensor for calibration (optional)",
+          "str_correction": "Correction factor (optional)"
+        }
+      },
+      "advanced": {
+        "title": "Advanced settings",
+        "description": "Available features for your API key: {features}",
+        "data": {
+          "days": "Forecast days",
+          "resolution": "Calculation resolution",
+          "damping": "Morning/evening damping",
+          "no_horizon": "Disable PVGIS horizon"
+        }
+      }
+    },
+    "error": {
+      "interval_requires_key": "Intervals shorter than 60 minutes require an API key.",
+      "invalid_api_key": "Invalid API key or key has no permitted features."
     }
   }
 }

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Solar Forecast API – základní nastavení",
-        "description": "Zadejte základní parametry a počet stringů.",
+        "description": "Zadejte základní parametry. Bez API klíče: 1 string, 1 den předpovědi, interval 60 min.",
         "data": {
           "name": "Název",
           "api_key": "API klíč (volitelné)",
@@ -13,8 +13,8 @@
           "update_interval": "Interval aktualizace"
         },
         "data_description": {
-          "api_key": "Bez API klíče: max 12 dotazů/hod, interval pouze 60 min, bez počasí.",
-          "update_interval": "Bez API klíče lze zvolit pouze 60 minut."
+          "api_key": "Po zadání klíče se automaticky načtou dostupné funkce (weather, calibration, timewindows).",
+          "string_count": "Bez API klíče je možný pouze 1 string."
         }
       },
       "string": {
@@ -31,7 +31,7 @@
       },
       "advanced": {
         "title": "Pokročilé nastavení",
-        "description": "Nastavte chování API výpočtu.",
+        "description": "Dostupné funkce vašeho API klíče: {features}",
         "data": {
           "days": "Počet dní předpovědi",
           "resolution": "Rozlišení výpočtu",
@@ -39,17 +39,60 @@
           "no_horizon": "Vypnout PVGIS horizont (nedoporučeno)"
         },
         "data_description": {
-          "resolution": "15minutové rozlišení vyžaduje API klíč.",
           "damping": "Snižuje odhadovaný výkon při nízkém slunečním úhlu. Hodnota 0.5 je doporučená."
         }
       }
     },
     "error": {
       "cannot_connect": "Nelze se připojit k API serveru forecast.xnas.cz",
-      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč."
+      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč.",
+      "invalid_api_key": "Neplatný API klíč nebo klíč nemá žádné povolené funkce."
     },
     "abort": {
       "already_configured": "Tato konfigurace již existuje"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Upravit nastavení",
+        "description": "Změňte název, API klíč, počet stringů nebo interval.",
+        "data": {
+          "name": "Název",
+          "api_key": "API klíč (volitelné)",
+          "string_count": "Počet stringů (1–10)",
+          "update_interval": "Interval aktualizace"
+        },
+        "data_description": {
+          "api_key": "Změna klíče znovu načte dostupné funkce z API."
+        }
+      },
+      "string": {
+        "title": "String {index} z {total}",
+        "description": "Upravte parametry stringu č. {index}.",
+        "data": {
+          "str_name": "Název stringu",
+          "str_declination": "Sklon panelů [°]",
+          "str_azimuth": "Azimut [°]",
+          "str_wp": "Instalovaný výkon [Wp]",
+          "str_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
+          "str_correction": "Korekční faktor (volitelné)"
+        }
+      },
+      "advanced": {
+        "title": "Pokročilé nastavení",
+        "description": "Dostupné funkce vašeho API klíče: {features}",
+        "data": {
+          "days": "Počet dní předpovědi",
+          "resolution": "Rozlišení výpočtu",
+          "damping": "Tlumení ráno/večer",
+          "no_horizon": "Vypnout PVGIS horizont"
+        }
+      }
+    },
+    "error": {
+      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč.",
+      "invalid_api_key": "Neplatný API klíč nebo klíč nemá žádné povolené funkce."
     }
   }
 }

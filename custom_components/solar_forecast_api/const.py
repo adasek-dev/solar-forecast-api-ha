@@ -12,6 +12,7 @@ CONF_DAYS = "days"
 CONF_DAMPING = "damping"
 CONF_NO_HORIZON = "no_horizon"
 CONF_RESOLUTION = "resolution"
+CONF_API_FEATURES = "api_features"   # uložené features z API klíče
 
 # Per-string config keys (up to 10 strings)
 MAX_STRINGS = 10
@@ -50,7 +51,7 @@ def conf_correction(i: int) -> str:
     return f"string_{i}_correction"
 
 
-# Legacy keys (kept for backward compatibility)
+# Legacy keys
 CONF_DECLINATION = "declination"
 CONF_AZIMUTH = "azimuth"
 CONF_KWP = "kwp"
@@ -62,7 +63,15 @@ CONF_ACTUAL_ENTITY = "actual_entity"
 CONF_CORRECTION = "correction"
 
 DEFAULT_NAME = "Solar Forecast"
-UPDATE_INTERVAL = 3600       # default 60 minut v sekundách
+UPDATE_INTERVAL = 3600  # default 60 minut v sekundách
 
-INTERVAL_OPTIONS = [5, 15, 30, 45, 60]   # minuty
-DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
+INTERVAL_OPTIONS_WITH_KEY = [5, 15, 30, 45, 60]
+INTERVAL_OPTIONS_NO_KEY = [60]
+DAYS_OPTIONS_WITH_KEY = [1, 2, 3, 4, 5, 6, 7]
+DAYS_OPTIONS_NO_KEY = [1]
+
+# API features
+FEATURE_WEATHER = "weather"
+FEATURE_ACTUAL = "actual"
+FEATURE_CALIBRATION = "calibration"
+FEATURE_TIMEWINDOWS = "timewindows"
