@@ -276,9 +276,10 @@ def _weather_value(data: SolarForecastData, sensor_type: str) -> Any:
 
 def _device_info(entry: ConfigEntry, name_prefix: str) -> dict:
     """Build device info with feature list as model info."""
-    features = entry.data.get(CONF_API_FEATURES, [])
-    days = entry.data.get(CONF_DAYS, 1)
-    has_key = bool(entry.data.get("api_key", ""))
+    ecfg = {**entry.data, **entry.options}
+    features = ecfg.get(CONF_API_FEATURES, [])
+    days = ecfg.get(CONF_DAYS, 1)
+    has_key = bool(ecfg.get("api_key", ""))
 
     if has_key and features:
         model_info = f"forecast.xnas.cz | {days}d | {', '.join(features)}"
@@ -305,13 +306,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: SolarForecastCoordinator = hass.data[DOMAIN][entry.entry_id]
-    name = entry.data.get(CONF_NAME, DEFAULT_NAME)
-    string_count = entry.data.get(CONF_STRING_COUNT, 1)
-    configured_days = entry.data.get(CONF_DAYS, 1)
-    api_features = entry.data.get(CONF_API_FEATURES, [])
+    # Always merge data + options – options flow stores everything in entry.options
+    cfg = {**entry.data, **entry.options}
+    name = cfg.get(CONF_NAME, DEFAULT_NAME)
+    string_count = cfg.get(CONF_STRING_COUNT, 1)
+    configured_days = cfg.get(CONF_DAYS, 1)
+    api_features = cfg.get(CONF_API_FEATURES, [])
     # Respect per-feature toggles (user can disable even available features)
     has_weather = (FEATURE_WEATHER in api_features and
-                   entry.data.get(CONF_FEATURE_WEATHER, True))
+                   cfg.get(CONF_FEATURE_WEATHER, True))
 
     entities: list[SensorEntity] = []
 
@@ -325,7 +328,7 @@ async def async_setup_entry(
     # ── Per-string sensors (only if more than 1 string) ──
     if string_count > 1:
         for i in range(1, string_count + 1):
-            string_label = entry.data.get(conf_string_name(i), f"String {i}")
+            string_label = cfg.get(conf_string_name(i), f"String {i}")
             for sensor_type, cfg in PRODUCTION_SENSORS.items():
                 if configured_days >= cfg.get("min_days", 1):
                     entities.append(SolarForecastStringSensor(
@@ -365,7 +368,8 @@ class _Base(CoordinatorEntity[SolarForecastCoordinator], SensorEntity):
 class SolarForecastTotalSensor(_Base):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
-        self._attr_name = f"{name_prefix} {sensor_config['name']}"
+        self._attr_has_entity_name = True
+        self._attr_name = sensor_config['name']
         self._attr_unique_id = f"{entry.entry_id}_total_{sensor_type}"
 
     @property
@@ -391,7 +395,8 @@ class SolarForecastStringSensor(_Base):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix, string_label, idx):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
         self._idx = idx
-        self._attr_name = f"{name_prefix} {string_label} {sensor_config['name']}"
+        self._attr_has_entity_name = True
+        self._attr_name = f"{string_label} {sensor_config['name']}"
         self._attr_unique_id = f"{entry.entry_id}_str{idx}_{sensor_type}"
 
     @property
@@ -420,7 +425,8 @@ class SolarForecastStringSensor(_Base):
 class SolarForecastWeatherSensor(_Base):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
-        self._attr_name = f"{name_prefix} {sensor_config['name']}"
+        self._attr_has_entity_name = True
+        self._attr_name = sensor_config['name']
         self._attr_unique_id = f"{entry.entry_id}_{sensor_type}"
 
     @property
@@ -449,7 +455,8 @@ class SolarForecastHorizonSensor(CoordinatorEntity[SolarForecastCoordinator], Se
     def __init__(self, coordinator, entry, name_prefix):
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = f"{name_prefix} Horizon - Max elevation"
+        self._attr_has_entity_name = True
+        self._attr_name = "Horizon - Max elevation"
         self._attr_unique_id = f"{entry.entry_id}_horizon"
         self._attr_icon = "mdi:image-filter-hdr"
         self._attr_native_unit_of_measurement = "°"
