@@ -65,7 +65,9 @@
           "name": "Name",
           "api_key": "API key (optional)",
           "string_count": "Number of strings (1–10)",
-          "update_interval": "Update interval"
+          "update_interval": "Update interval",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
         },
         "data_description": {
           "api_key": "Changing the key will re-fetch available features from the API."

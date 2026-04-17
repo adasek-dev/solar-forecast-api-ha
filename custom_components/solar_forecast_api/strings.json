@@ -65,7 +65,9 @@
           "name": "Název",
           "api_key": "API klíč (volitelné)",
           "string_count": "Počet stringů (1–10)",
-          "update_interval": "Interval aktualizace"
+          "update_interval": "Interval aktualizace",
+          "latitude": "Zeměpisná šířka",
+          "longitude": "Zeměpisná délka"
         },
         "data_description": {
           "api_key": "Změna klíče znovu načte dostupné funkce z API."
