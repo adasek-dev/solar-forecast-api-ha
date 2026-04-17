@@ -16,26 +16,26 @@ from .const import (
     CONF_API_KEY,
     CONF_LATITUDE,
     CONF_LONGITUDE,
-    CONF_DECLINATION,
-    CONF_AZIMUTH,
-    CONF_KWP,
-    CONF_DECLINATION_2,
-    CONF_AZIMUTH_2,
-    CONF_KWP_2,
-    CONF_ACTUAL_ENTITY,
-    CONF_CORRECTION,
+    CONF_STRING_COUNT,
     UPDATE_INTERVAL,
+    conf_string_name,
+    conf_declination,
+    conf_azimuth,
+    conf_wp,
+    conf_actual_entity,
+    conf_correction,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SolarForecastData:
-    """Parsed solar forecast data."""
+class StringForecastData:
+    """Parsed solar forecast data for one string."""
 
-    def __init__(self, raw: dict[str, Any]) -> None:
+    def __init__(self, raw: dict[str, Any], string_name: str) -> None:
         """Initialize from API response."""
         self.raw = raw
+        self.string_name = string_name
         result = raw.get("result", {})
 
         self.watts = result.get("watts", {})
@@ -138,6 +138,120 @@ class SolarForecastData:
         return [{"datetime": k, "power": self.watts[k]} for k in sorted(self.watts.keys())]
 
 
+class SolarForecastData:
+    """Combined data for all strings."""
+
+    def __init__(self, strings: list[StringForecastData]) -> None:
+        self.strings = strings
+
+    def _sum_float(self, getter) -> float:
+        total = 0.0
+        for s in self.strings:
+            val = getter(s)
+            if val is not None:
+                total += val
+        return round(total, 2)
+
+    @property
+    def power_now(self) -> int:
+        return sum(s.power_now for s in self.strings)
+
+    @property
+    def energy_today(self) -> float:
+        return self._sum_float(lambda s: s.energy_today)
+
+    @property
+    def energy_tomorrow(self) -> float:
+        return self._sum_float(lambda s: s.energy_tomorrow)
+
+    @property
+    def energy_remaining_today(self) -> float:
+        return self._sum_float(lambda s: s.energy_remaining_today)
+
+    @property
+    def energy_next_hour(self) -> float:
+        return self._sum_float(lambda s: s.energy_next_hour)
+
+    @property
+    def peak_power_today(self) -> int:
+        # Peak of combined watts per hour
+        all_keys = set()
+        for s in self.strings:
+            all_keys.update(s.watts.keys())
+        if not all_keys or not self.strings[0].today:
+            return 0
+        today = self.strings[0].today
+        return max(
+            (sum(s.watts.get(k, 0) for s in self.strings) for k in all_keys if k.startswith(today)),
+            default=0,
+        )
+
+    @property
+    def peak_time_today(self) -> str | None:
+        all_keys = set()
+        for s in self.strings:
+            all_keys.update(s.watts.keys())
+        if not all_keys or not self.strings[0].today:
+            return None
+        today = self.strings[0].today
+        today_keys = [k for k in all_keys if k.startswith(today)]
+        if not today_keys:
+            return None
+        return max(today_keys, key=lambda k: sum(s.watts.get(k, 0) for s in self.strings))
+
+    @property
+    def peak_power_tomorrow(self) -> int:
+        all_keys = set()
+        for s in self.strings:
+            all_keys.update(s.watts.keys())
+        if not all_keys or not self.strings[0].tomorrow:
+            return 0
+        tomorrow = self.strings[0].tomorrow
+        return max(
+            (sum(s.watts.get(k, 0) for s in self.strings) for k in all_keys if k.startswith(tomorrow)),
+            default=0,
+        )
+
+    @property
+    def peak_time_tomorrow(self) -> str | None:
+        all_keys = set()
+        for s in self.strings:
+            all_keys.update(s.watts.keys())
+        if not all_keys or not self.strings[0].tomorrow:
+            return None
+        tomorrow = self.strings[0].tomorrow
+        tmrw_keys = [k for k in all_keys if k.startswith(tomorrow)]
+        if not tmrw_keys:
+            return None
+        return max(tmrw_keys, key=lambda k: sum(s.watts.get(k, 0) for s in self.strings))
+
+    @property
+    def hourly_forecast(self) -> list[dict]:
+        all_keys = set()
+        for s in self.strings:
+            all_keys.update(s.watts.keys())
+        return [
+            {"datetime": k, "power": sum(s.watts.get(k, 0) for s in self.strings)}
+            for k in sorted(all_keys)
+        ]
+
+    @property
+    def watt_hours_day(self) -> dict:
+        combined: dict[str, float] = {}
+        for s in self.strings:
+            for day, val in s.watt_hours_day.items():
+                combined[day] = combined.get(day, 0) + val
+        return combined
+
+    @property
+    def correction(self):
+        # Return correction from first string that has one
+        for s in self.strings:
+            if s.correction is not None:
+                return s.correction
+        return None
+
+
 class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
     """Coordinator to fetch data from Solar Forecast API."""
 
@@ -152,15 +266,54 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         self.config = config
         self.hass = hass
 
-    def _build_url(self) -> str:
-        """Build the API URL from config."""
+    def _get_strings(self) -> list[dict]:
+        """Get list of string configs, supporting both new and legacy format."""
+        string_count = self.config.get(CONF_STRING_COUNT)
+
+        if string_count:
+            # New multi-string format
+            strings = []
+            for i in range(1, string_count + 1):
+                wp = self.config.get(conf_wp(i), 5000)
+                strings.append({
+                    "name": self.config.get(conf_string_name(i), f"String {i}"),
+                    "declination": self.config.get(conf_declination(i), 35),
+                    "azimuth": self.config.get(conf_azimuth(i), 0),
+                    "kwp": wp / 1000.0,  # convert Wp to kWp for API
+                    "actual_entity": self.config.get(conf_actual_entity(i), ""),
+                    "correction": self.config.get(conf_correction(i)),
+                })
+            return strings
+        else:
+            # Legacy format (old 2-plane config)
+            strings = [{
+                "name": "String 1",
+                "declination": self.config.get("declination", 35),
+                "azimuth": self.config.get("azimuth", 0),
+                "kwp": self.config.get("kwp", 5.0),
+                "actual_entity": self.config.get("actual_entity", ""),
+                "correction": self.config.get("correction"),
+            }]
+            if self.config.get("second_plane") and self.config.get("kwp_2", 0) > 0:
+                strings.append({
+                    "name": "String 2",
+                    "declination": self.config.get("declination_2", 35),
+                    "azimuth": self.config.get("azimuth_2", 0),
+                    "kwp": self.config.get("kwp_2", 5.0),
+                    "actual_entity": "",
+                    "correction": self.config.get("correction"),
+                })
+            return strings
+
+    def _build_url(self, string_cfg: dict) -> str:
+        """Build API URL for a single string."""
         base = DEFAULT_API_URL.rstrip("/")
         api_key = self.config.get(CONF_API_KEY, "")
         lat = self.config[CONF_LATITUDE]
         lon = self.config[CONF_LONGITUDE]
-        dec = self.config[CONF_DECLINATION]
-        az = self.config[CONF_AZIMUTH]
-        kwp = self.config[CONF_KWP]
+        dec = string_cfg["declination"]
+        az = string_cfg["azimuth"]
+        kwp = string_cfg["kwp"]
 
         if api_key:
             path = f"/estimate/{api_key}"
@@ -169,23 +322,13 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
 
         path += f"/{lat}/{lon}/{dec}/{az}/{kwp}"
 
-        # Second plane
-        dec2 = self.config.get(CONF_DECLINATION_2)
-        az2 = self.config.get(CONF_AZIMUTH_2)
-        kwp2 = self.config.get(CONF_KWP_2)
-        if dec2 and kwp2 and kwp2 > 0:
-            path += f"/{dec2}/{az2}/{kwp2}"
-
-        # Query params
         params = ["days=7"]
 
-        # Correction factor
-        correction = self.config.get(CONF_CORRECTION, 0)
-        if correction and correction > 0:
+        correction = string_cfg.get("correction")
+        if correction is not None and correction > 0:
             params.append(f"correction={correction}")
 
-        # Actual entity
-        actual_entity = self.config.get(CONF_ACTUAL_ENTITY, "")
+        actual_entity = string_cfg.get("actual_entity", "")
         if actual_entity:
             state = self.hass.states.get(actual_entity)
             if state and state.state not in ("unknown", "unavailable"):
@@ -199,26 +342,31 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         url = f"{base}{path}?{'&'.join(params)}"
         return url
 
-    async def _async_update_data(self) -> SolarForecastData:
-        """Fetch data from API."""
-        url = self._build_url()
-        _LOGGER.debug("Fetching solar forecast: %s", url)
+    async def _fetch_string(self, session: aiohttp.ClientSession, string_cfg: dict) -> StringForecastData:
+        """Fetch data for one string."""
+        url = self._build_url(string_cfg)
+        _LOGGER.debug("Fetching solar forecast for %s: %s", string_cfg["name"], url)
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            if resp.status != 200:
+                raise UpdateFailed(f"HTTP {resp.status} for string {string_cfg['name']}")
+            data = await resp.json()
+        if "error" in data and data.get("error"):
+            raise UpdateFailed(data.get("message", "Unknown error"))
+        return StringForecastData(data, string_cfg["name"])
 
+    async def _async_update_data(self) -> SolarForecastData:
+        """Fetch data from API for all strings."""
+        strings_cfg = self._get_strings()
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url, timeout=aiohttp.ClientTimeout(total=30)
-                ) as resp:
-                    if resp.status != 200:
-                        raise UpdateFailed(f"HTTP {resp.status}")
-                    data = await resp.json()
-
-            if "error" in data and data.get("error"):
-                raise UpdateFailed(data.get("message", "Unknown error"))
-
-            return SolarForecastData(data)
-
+                string_data = []
+                for cfg in strings_cfg:
+                    data = await self._fetch_string(session, cfg)
+                    string_data.append(data)
+            return SolarForecastData(string_data)
         except aiohttp.ClientError as err:
             raise UpdateFailed(f"Connection error: {err}") from err
+        except UpdateFailed:
+            raise
         except Exception as err:
             raise UpdateFailed(f"Error: {err}") from err

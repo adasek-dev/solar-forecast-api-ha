@@ -3,35 +3,33 @@
     "step": {
       "user": {
         "title": "Solar Forecast API",
-        "description": "Zadejte parametry vasi solarni elektrarny.",
+        "description": "Zadejte základní parametry a počet stringů.",
         "data": {
-          "name": "Nazev (napr. Jih, Vychod+Zapad)",
-          "api_key": "API klic (volitelne, pro kalibraci)",
-          "latitude": "Zemepisna sirka",
-          "longitude": "Zemepisna delka",
-          "declination": "Sklon panelu [stupne] (0=horiz., 90=vertik.)",
-          "azimuth": "Azimut [stupne] (0=jih, -90=vychod, 90=zapad)",
-          "kwp": "Instaloany vykon [kWp]"
+          "name": "Název (napr. Jih, Vychod+Zapad)",
+          "api_key": "API klíč (volitelné, pro kalibraci)",
+          "latitude": "Zeměpisná šířka",
+          "longitude": "Zeměpisná délka",
+          "string_count": "Počet stringů (1–10)"
         }
       },
-      "plane2": {
-        "title": "Dalsi nastaveni",
-        "description": "Druhe pole panelu a volitelna kalibrace.",
+      "string": {
+        "title": "Konfigurace stringu {index} z {total}",
+        "description": "Zadejte parametry stringu {index}.",
         "data": {
-          "second_plane": "Pridat druhe pole panelu?",
-          "declination_2": "Sklon 2. pole [stupne]",
-          "azimuth_2": "Azimut 2. pole [stupne]",
-          "kwp_2": "Vykon 2. pole [kWp]",
-          "actual_entity": "Senzor denni vyroby pro kalibraci (volitelne)",
-          "correction": "Korekcni faktor (0 = automaticky, 0.1-1.5 = rucne)"
+          "string_{index}_name": "Název stringu (napr. Vychod, Zapad, Jih)",
+          "string_{index}_declination": "Sklon panelů [°] (0=horizont., 90=vertik.)",
+          "string_{index}_azimuth": "Azimut [°] (0=jih, -90=vychod, 90=zapad)",
+          "string_{index}_wp": "Instalovaný výkon [Wp]",
+          "string_{index}_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
+          "string_{index}_correction": "Korekční faktor (volitelné, 0.1–2.0; prázdné = automaticky)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nelze se pripojit k API serveru forecast.xnas.cz"
+      "cannot_connect": "Nelze se připojit k API serveru forecast.xnas.cz"
     },
     "abort": {
-      "already_configured": "Tato konfigurace jiz existuje"
+      "already_configured": "Tato konfigurace již existuje"
     }
   }
 }
