@@ -7,6 +7,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "",
   "requirements": [],
-  "version": "1.5.1",
-  "icon": "mdi:solar-power-variant-outline"
+  "version": "1.5.2"
 }
