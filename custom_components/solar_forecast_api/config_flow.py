@@ -69,48 +69,76 @@ async def validate_api(url: str) -> bool:
 async def fetch_key_features(url: str, api_key: str) -> list[str] | None:
     """
     Return list of features for the given API key, or None if the key is invalid.
-    Tests /estimate, /weather and /timewindows endpoints.
+    Uses a single estimate call to verify the key, then tests weather + timewindows.
+    Deliberately minimal – only 1 rate-limit slot consumed for estimate.
     """
     base = url.rstrip("/")
-    test_path = f"50.0/16.0/35/0/1.0"
+    # Minimal valid params: lat=50, lon=16, dec=35, az=0, kwp=1
+    est_url = f"{base}/estimate/{api_key}/50.0/16.0/35/0/1.0?days=1"
+    wx_url  = f"{base}/weather/{api_key}/50.0/16.0?days=1"
+    tw_url  = f"{base}/timewindows/{api_key}/50.0/16.0/35/0/1.0?days=1"
+
     features: list[str] = []
+    timeout = aiohttp.ClientTimeout(total=15)
 
     try:
         async with aiohttp.ClientSession() as session:
-            # --- estimate (actual + calibration) ---
-            async with session.get(
-                f"{base}/estimate/{api_key}/{test_path}?days=1",
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
+            # ── 1. Verify key via estimate ──────────────────────────────
+            async with session.get(est_url, timeout=timeout) as resp:
+                body = await resp.json(content_type=None)
                 if resp.status == 403:
-                    data = await resp.json()
-                    if "Neplatný" in data.get("message", "") or "Invalid" in data.get("message", "").lower():
-                        return None   # invalid key
+                    msg = body.get("message", "")
+                    if "Neplatný" in msg or "nvalid" in msg or "neplatný" in msg.lower():
+                        _LOGGER.debug("API key rejected: %s", msg)
+                        return None   # genuinely invalid key
+                    # Other 403 = some other restriction, key may still be valid
+                elif resp.status == 429:
+                    # Rate-limited but key is valid – assume basic features
+                    _LOGGER.debug("Rate limited during feature detection, assuming basic features")
+                    return ["actual", "calibration"]
                 elif resp.status == 200:
                     features += ["actual", "calibration"]
+                else:
+                    _LOGGER.warning("Unexpected status %s from estimate", resp.status)
+                    return ["actual", "calibration"]   # be optimistic
 
-            # --- weather ---
-            async with session.get(
-                f"{base}/weather/{api_key}/50.0/16.0?days=1",
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status == 200:
-                    features.append(FEATURE_WEATHER)
+            # ── 2. Test weather feature ─────────────────────────────────
+            try:
+                async with session.get(wx_url, timeout=timeout) as resp:
+                    body = await resp.json(content_type=None)
+                    if resp.status == 200:
+                        features.append(FEATURE_WEATHER)
+                    elif resp.status == 403:
+                        msg = body.get("message", "")
+                        # "nemá povolen" = key valid but no weather
+                        # "Neplatný" = would have been caught above already
+                        _LOGGER.debug("Weather feature not available: %s", msg)
+            except Exception as e:
+                _LOGGER.debug("Weather feature check failed: %s", e)
 
-            # --- timewindows ---
-            async with session.get(
-                f"{base}/timewindows/{api_key}/{test_path}?days=1",
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status == 200:
-                    features.append(FEATURE_TIMEWINDOWS)
+            # ── 3. Test timewindows feature ─────────────────────────────
+            try:
+                async with session.get(tw_url, timeout=timeout) as resp:
+                    body = await resp.json(content_type=None)
+                    if resp.status == 200:
+                        features.append(FEATURE_TIMEWINDOWS)
+                    elif resp.status == 403:
+                        _LOGGER.debug("Timewindows feature not available: %s",
+                                      body.get("message", ""))
+            except Exception as e:
+                _LOGGER.debug("Timewindows feature check failed: %s", e)
 
+    except aiohttp.ClientError as err:
+        _LOGGER.warning("Feature detection network error: %s", err)
+        # Network error – don't block setup, return basic features
+        return ["actual", "calibration"]
     except Exception as err:
-        _LOGGER.warning("Feature detection failed: %s", err)
-        # Return basic features on network error (don't block setup)
+        _LOGGER.warning("Feature detection unexpected error: %s", err)
         return ["actual", "calibration"]
 
+    _LOGGER.debug("Detected features for key: %s", features)
     return features
+
 
 
 def _interval_options() -> list[selector.SelectOptionDict]:
