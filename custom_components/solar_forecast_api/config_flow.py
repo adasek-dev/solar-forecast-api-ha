@@ -33,6 +33,10 @@ from .const import (
     FEATURE_ACTUAL,
     FEATURE_WEATHER,
     FEATURE_TIMEWINDOWS,
+    CONF_FEATURE_WEATHER,
+    CONF_FEATURE_ACTUAL,
+    CONF_FEATURE_CALIBRATION,
+    CONF_FEATURE_TIMEWINDOWS,
     CONF_STR_NAME,
     CONF_STR_DECLINATION,
     CONF_STR_AZIMUTH,
@@ -201,8 +205,9 @@ def _string_schema(i: int, defaults: dict, has_actual: bool) -> vol.Schema:
     return vol.Schema(fields)
 
 
-def _advanced_schema(defaults: dict) -> vol.Schema:
-    return vol.Schema({
+def _advanced_schema(defaults: dict, available_features: list[str]) -> vol.Schema:
+    """Build advanced schema – show feature checkboxes only for available features."""
+    fields: dict = {
         vol.Required(CONF_DAYS, default=str(defaults.get(CONF_DAYS, 4))): selector.SelectSelector(
             selector.SelectSelectorConfig(options=_days_options(), mode=selector.SelectSelectorMode.LIST)
         ),
@@ -213,7 +218,17 @@ def _advanced_schema(defaults: dict) -> vol.Schema:
             selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.01, mode=selector.NumberSelectorMode.BOX)
         ),
         vol.Optional(CONF_NO_HORIZON, default=bool(defaults.get(CONF_NO_HORIZON, False))): bool,
-    })
+    }
+    # Feature checkboxes – only shown if the API key supports them
+    if FEATURE_WEATHER in available_features:
+        fields[vol.Optional(CONF_FEATURE_WEATHER, default=bool(defaults.get(CONF_FEATURE_WEATHER, True)))] = bool
+    if FEATURE_ACTUAL in available_features:
+        fields[vol.Optional(CONF_FEATURE_ACTUAL, default=bool(defaults.get(CONF_FEATURE_ACTUAL, True)))] = bool
+    if FEATURE_CALIBRATION in available_features:
+        fields[vol.Optional(CONF_FEATURE_CALIBRATION, default=bool(defaults.get(CONF_FEATURE_CALIBRATION, True)))] = bool
+    if FEATURE_TIMEWINDOWS in available_features:
+        fields[vol.Optional(CONF_FEATURE_TIMEWINDOWS, default=bool(defaults.get(CONF_FEATURE_TIMEWINDOWS, False)))] = bool
+    return vol.Schema(fields)
 
 
 def _basic_schema(defaults: dict) -> vol.Schema:
@@ -345,6 +360,11 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_DAMPING: float(user_input.get(CONF_DAMPING, 0.0)),
                 CONF_NO_HORIZON: bool(user_input.get(CONF_NO_HORIZON, False)),
                 CONF_RESOLUTION: int(user_input.get(CONF_RESOLUTION, 60)),
+                # Feature toggles – save only for available features
+                CONF_FEATURE_WEATHER: bool(user_input.get(CONF_FEATURE_WEATHER, True)),
+                CONF_FEATURE_ACTUAL: bool(user_input.get(CONF_FEATURE_ACTUAL, True)),
+                CONF_FEATURE_CALIBRATION: bool(user_input.get(CONF_FEATURE_CALIBRATION, True)),
+                CONF_FEATURE_TIMEWINDOWS: bool(user_input.get(CONF_FEATURE_TIMEWINDOWS, False)),
             })
             return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
@@ -352,7 +372,7 @@ class SolarForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="advanced",
             description_placeholders={"features": features_text},
-            data_schema=_advanced_schema(self._data),
+            data_schema=_advanced_schema(self._data, self._api_features),
         )
 
 
@@ -466,6 +486,10 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
                 CONF_DAMPING: float(user_input.get(CONF_DAMPING, 0.0)),
                 CONF_NO_HORIZON: bool(user_input.get(CONF_NO_HORIZON, False)),
                 CONF_RESOLUTION: int(user_input.get(CONF_RESOLUTION, 60)),
+                CONF_FEATURE_WEATHER: bool(user_input.get(CONF_FEATURE_WEATHER, True)),
+                CONF_FEATURE_ACTUAL: bool(user_input.get(CONF_FEATURE_ACTUAL, True)),
+                CONF_FEATURE_CALIBRATION: bool(user_input.get(CONF_FEATURE_CALIBRATION, True)),
+                CONF_FEATURE_TIMEWINDOWS: bool(user_input.get(CONF_FEATURE_TIMEWINDOWS, False)),
             })
             return self.async_create_entry(title="", data=self._data)
 
@@ -473,5 +497,5 @@ class SolarForecastOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="advanced",
             description_placeholders={"features": features_text},
-            data_schema=_advanced_schema(self._data),
+            data_schema=_advanced_schema(self._data, self._api_features),
         )

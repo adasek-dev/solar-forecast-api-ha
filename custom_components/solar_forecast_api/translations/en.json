@@ -36,7 +36,11 @@
           "days": "Forecast days",
           "resolution": "Calculation resolution",
           "damping": "Morning/evening damping (0 = off, 1 = maximum)",
-          "no_horizon": "Disable PVGIS horizon (not recommended)"
+          "no_horizon": "Disable PVGIS horizon (not recommended)",
+          "feature_weather": "Enable weather forecast (weather)",
+          "feature_actual": "Enable calibration via actual production (actual)",
+          "feature_calibration": "Enable calibration data storage (calibration)",
+          "feature_timewindows": "Enable surplus time windows (timewindows)"
         },
         "data_description": {
           "damping": "Reduces estimated output at low solar angles. 0.5 is recommended."
@@ -86,7 +90,11 @@
           "days": "Forecast days",
           "resolution": "Calculation resolution",
           "damping": "Morning/evening damping",
-          "no_horizon": "Disable PVGIS horizon"
+          "no_horizon": "Disable PVGIS horizon",
+          "feature_weather": "Enable weather forecast (weather)",
+          "feature_actual": "Enable calibration via actual production (actual)",
+          "feature_calibration": "Enable calibration data storage (calibration)",
+          "feature_timewindows": "Enable surplus time windows (timewindows)"
         }
       }
     },

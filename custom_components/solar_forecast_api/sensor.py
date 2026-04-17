@@ -29,6 +29,10 @@ from .const import (
     CONF_API_FEATURES,
     DEFAULT_NAME,
     FEATURE_WEATHER,
+    CONF_FEATURE_WEATHER,
+    CONF_FEATURE_ACTUAL,
+    CONF_FEATURE_CALIBRATION,
+    CONF_FEATURE_TIMEWINDOWS,
     conf_string_name,
 )
 from .coordinator import (
@@ -305,7 +309,9 @@ async def async_setup_entry(
     string_count = entry.data.get(CONF_STRING_COUNT, 1)
     configured_days = entry.data.get(CONF_DAYS, 1)
     api_features = entry.data.get(CONF_API_FEATURES, [])
-    has_weather = FEATURE_WEATHER in api_features
+    # Respect per-feature toggles (user can disable even available features)
+    has_weather = (FEATURE_WEATHER in api_features and
+                   entry.data.get(CONF_FEATURE_WEATHER, True))
 
     entities: list[SensorEntity] = []
 

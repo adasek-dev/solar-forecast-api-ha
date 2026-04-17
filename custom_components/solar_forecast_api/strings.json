@@ -36,7 +36,11 @@
           "days": "Počet dní předpovědi",
           "resolution": "Rozlišení výpočtu",
           "damping": "Tlumení ráno/večer (0 = vypnuto, 1 = maximální)",
-          "no_horizon": "Vypnout PVGIS horizont (nedoporučeno)"
+          "no_horizon": "Vypnout PVGIS horizont (nedoporučeno)",
+          "feature_weather": "Povolit předpověď počasí (weather)",
+          "feature_actual": "Povolit kalibraci podle skutečné výroby (actual)",
+          "feature_calibration": "Povolit ukládání kalibrace (calibration)",
+          "feature_timewindows": "Povolit časová okna přebytku (timewindows)"
         },
         "data_description": {
           "damping": "Snižuje odhadovaný výkon při nízkém slunečním úhlu. Hodnota 0.5 je doporučená."
@@ -86,7 +90,11 @@
           "days": "Počet dní předpovědi",
           "resolution": "Rozlišení výpočtu",
           "damping": "Tlumení ráno/večer",
-          "no_horizon": "Vypnout PVGIS horizont"
+          "no_horizon": "Vypnout PVGIS horizont",
+          "feature_weather": "Povolit předpověď počasí (weather)",
+          "feature_actual": "Povolit kalibraci podle skutečné výroby (actual)",
+          "feature_calibration": "Povolit ukládání kalibrace (calibration)",
+          "feature_timewindows": "Povolit časová okna přebytku (timewindows)"
         }
       }
     },

@@ -75,3 +75,9 @@ FEATURE_WEATHER = "weather"
 FEATURE_ACTUAL = "actual"
 FEATURE_CALIBRATION = "calibration"
 FEATURE_TIMEWINDOWS = "timewindows"
+
+# Enabled features config keys
+CONF_FEATURE_WEATHER = "feature_weather"
+CONF_FEATURE_ACTUAL = "feature_actual"
+CONF_FEATURE_CALIBRATION = "feature_calibration"
+CONF_FEATURE_TIMEWINDOWS = "feature_timewindows"

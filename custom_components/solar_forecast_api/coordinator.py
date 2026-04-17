@@ -14,6 +14,9 @@ from .const import (
     DOMAIN,
     DEFAULT_API_URL,
     CONF_API_KEY,
+    CONF_FEATURE_ACTUAL,
+    CONF_FEATURE_CALIBRATION,
+    CONF_FEATURE_TIMEWINDOWS,
     CONF_LATITUDE,
     CONF_LONGITUDE,
     CONF_STRING_COUNT,
@@ -390,7 +393,8 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
             params.append(f"correction={correction}")
 
         actual_entity = string_cfg.get("actual_entity", "")
-        if actual_entity:
+        feature_actual_on = self.config.get(CONF_FEATURE_ACTUAL, True)
+        if actual_entity and feature_actual_on:
             state = self.hass.states.get(actual_entity)
             if state and state.state not in ("unknown", "unavailable"):
                 try:
