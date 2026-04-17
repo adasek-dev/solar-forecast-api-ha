@@ -25,7 +25,10 @@ from .const import (
     DOMAIN,
     CONF_NAME,
     CONF_STRING_COUNT,
+    CONF_DAYS,
+    CONF_API_FEATURES,
     DEFAULT_NAME,
+    FEATURE_WEATHER,
     conf_string_name,
 )
 from .coordinator import (
@@ -36,7 +39,7 @@ from .coordinator import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# ─── Senzory pro výrobu ─────────────────────────────────────────────────────
+# ─── Sensor definitions ─────────────────────────────────────────────────────
 
 PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
     "power_production_now": {
@@ -46,6 +49,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": SensorStateClass.MEASUREMENT,
         "unit": UnitOfPower.WATT,
         "enabled": True,
+        "min_days": 1,
     },
     "energy_production_today": {
         "name": "Estimated energy production - today",
@@ -54,14 +58,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": True,
-    },
-    "energy_production_tomorrow": {
-        "name": "Estimated energy production - tomorrow",
-        "icon": "mdi:solar-power-variant",
-        "device_class": SensorDeviceClass.ENERGY,
-        "state_class": None,
-        "unit": UnitOfEnergy.KILO_WATT_HOUR,
-        "enabled": True,
+        "min_days": 1,
     },
     "energy_production_today_remaining": {
         "name": "Estimated energy production - remaining today",
@@ -70,6 +67,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": True,
+        "min_days": 1,
     },
     "energy_next_hour": {
         "name": "Estimated energy production - next hour",
@@ -78,6 +76,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": True,
+        "min_days": 1,
     },
     "peak_power_today": {
         "name": "Highest power - today",
@@ -86,6 +85,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfPower.WATT,
         "enabled": True,
+        "min_days": 1,
     },
     "peak_time_today": {
         "name": "Peak time - today",
@@ -94,6 +94,17 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": None,
         "enabled": True,
+        "min_days": 1,
+    },
+    # ── Requires days >= 2 ──
+    "energy_production_tomorrow": {
+        "name": "Estimated energy production - tomorrow",
+        "icon": "mdi:solar-power-variant",
+        "device_class": SensorDeviceClass.ENERGY,
+        "state_class": None,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "enabled": True,
+        "min_days": 2,
     },
     "peak_power_tomorrow": {
         "name": "Highest power - tomorrow",
@@ -102,6 +113,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfPower.WATT,
         "enabled": False,
+        "min_days": 2,
     },
     "peak_time_tomorrow": {
         "name": "Peak time - tomorrow",
@@ -110,8 +122,9 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": None,
         "enabled": False,
+        "min_days": 2,
     },
-    # Extra dny (D+2 až D+6)
+    # ── Extra days ──
     "energy_production_d2": {
         "name": "Estimated energy production - day +2",
         "icon": "mdi:solar-power-variant",
@@ -119,6 +132,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": False,
+        "min_days": 3,
         "day_offset": 2,
     },
     "energy_production_d3": {
@@ -128,6 +142,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": False,
+        "min_days": 4,
         "day_offset": 3,
     },
     "energy_production_d4": {
@@ -137,6 +152,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": False,
+        "min_days": 5,
         "day_offset": 4,
     },
     "energy_production_d5": {
@@ -146,6 +162,7 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": False,
+        "min_days": 6,
         "day_offset": 5,
     },
     "energy_production_d6": {
@@ -155,11 +172,10 @@ PRODUCTION_SENSORS: dict[str, dict[str, Any]] = {
         "state_class": None,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "enabled": False,
+        "min_days": 7,
         "day_offset": 6,
     },
 }
-
-# ─── Senzory počasí (jen s API klíčem + feature weather) ─────────────────────
 
 WEATHER_SENSORS: dict[str, dict[str, Any]] = {
     "weather_temperature": {
@@ -204,14 +220,14 @@ WEATHER_SENSORS: dict[str, dict[str, Any]] = {
     },
 }
 
-# ─── Pomocné funkce ──────────────────────────────────────────────────────────
 
-def _get_total_value(data: SolarForecastData, sensor_type: str) -> Any:
-    if sensor_type.startswith("energy_production_d"):
-        day_offset = PRODUCTION_SENSORS.get(sensor_type, {}).get("day_offset")
-        if day_offset is not None:
-            return data.energy_for_day(day_offset)
-    mapping = {
+# ─── Value getters ────────────────────────────────────────────────────────────
+
+def _total_value(data: SolarForecastData, sensor_type: str) -> Any:
+    day_offset = PRODUCTION_SENSORS.get(sensor_type, {}).get("day_offset")
+    if day_offset is not None:
+        return data.energy_for_day(day_offset)
+    return {
         "power_production_now": lambda: data.power_now,
         "energy_production_today": lambda: data.energy_today,
         "energy_production_tomorrow": lambda: data.energy_tomorrow,
@@ -221,44 +237,60 @@ def _get_total_value(data: SolarForecastData, sensor_type: str) -> Any:
         "peak_time_today": lambda: data.peak_time_today,
         "peak_power_tomorrow": lambda: data.peak_power_tomorrow,
         "peak_time_tomorrow": lambda: data.peak_time_tomorrow,
-    }
-    getter = mapping.get(sensor_type)
-    return getter() if getter else None
+    }.get(sensor_type, lambda: None)()
 
 
-def _get_string_value(string_data: StringForecastData, sensor_type: str) -> Any:
-    if sensor_type.startswith("energy_production_d"):
-        day_offset = PRODUCTION_SENSORS.get(sensor_type, {}).get("day_offset")
-        if day_offset is not None:
-            return string_data.energy_for_day(day_offset)
-    mapping = {
-        "power_production_now": lambda: string_data.power_now,
-        "energy_production_today": lambda: string_data.energy_today,
-        "energy_production_tomorrow": lambda: string_data.energy_tomorrow,
-        "energy_production_today_remaining": lambda: string_data.energy_remaining_today,
-        "energy_next_hour": lambda: string_data.energy_next_hour,
-        "peak_power_today": lambda: string_data.peak_power_today,
-        "peak_time_today": lambda: string_data.peak_time_today,
-        "peak_power_tomorrow": lambda: string_data.peak_power_tomorrow,
-        "peak_time_tomorrow": lambda: string_data.peak_time_tomorrow,
-    }
-    getter = mapping.get(sensor_type)
-    return getter() if getter else None
+def _string_value(sd: StringForecastData, sensor_type: str) -> Any:
+    day_offset = PRODUCTION_SENSORS.get(sensor_type, {}).get("day_offset")
+    if day_offset is not None:
+        return sd.energy_for_day(day_offset)
+    return {
+        "power_production_now": lambda: sd.power_now,
+        "energy_production_today": lambda: sd.energy_today,
+        "energy_production_tomorrow": lambda: sd.energy_tomorrow,
+        "energy_production_today_remaining": lambda: sd.energy_remaining_today,
+        "energy_next_hour": lambda: sd.energy_next_hour,
+        "peak_power_today": lambda: sd.peak_power_today,
+        "peak_time_today": lambda: sd.peak_time_today,
+        "peak_power_tomorrow": lambda: sd.peak_power_tomorrow,
+        "peak_time_tomorrow": lambda: sd.peak_time_tomorrow,
+    }.get(sensor_type, lambda: None)()
 
 
-def _get_weather_value(data: SolarForecastData, sensor_type: str) -> Any:
+def _weather_value(data: SolarForecastData, sensor_type: str) -> Any:
     if data.weather is None:
         return None
     w = data.weather
-    mapping = {
+    return {
         "weather_temperature": lambda: w.temperature_now,
         "weather_sky": lambda: round(w.sky_now * 100) if w.sky_now is not None else None,
         "weather_condition": lambda: w.condition_now,
         "weather_wind_speed": lambda: w.wind_speed_now,
         "weather_wind_direction": lambda: w.wind_direction_now,
+    }.get(sensor_type, lambda: None)()
+
+
+def _device_info(entry: ConfigEntry, name_prefix: str) -> dict:
+    """Build device info with feature list as model info."""
+    features = entry.data.get(CONF_API_FEATURES, [])
+    days = entry.data.get(CONF_DAYS, 1)
+    has_key = bool(entry.data.get("api_key", ""))
+
+    if has_key and features:
+        model_info = f"forecast.xnas.cz | {days}d | {', '.join(features)}"
+    elif has_key:
+        model_info = f"forecast.xnas.cz | {days}d | klíč bez funkcí"
+    else:
+        model_info = "forecast.xnas.cz | 1d | bez API klíče"
+
+    return {
+        "identifiers": {(DOMAIN, entry.entry_id)},
+        "name": f"Solar Forecast - {name_prefix}",
+        "manufacturer": "Solar Forecast API",
+        "model": model_info,
+        "sw_version": "1.5.0",
+        "configuration_url": "https://forecast.xnas.cz",
     }
-    getter = mapping.get(sensor_type)
-    return getter() if getter else None
 
 
 # ─── Setup ──────────────────────────────────────────────────────────────────
@@ -268,55 +300,48 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Solar Forecast sensors."""
     coordinator: SolarForecastCoordinator = hass.data[DOMAIN][entry.entry_id]
     name = entry.data.get(CONF_NAME, DEFAULT_NAME)
-    string_count = entry.data.get(CONF_STRING_COUNT, 0)
+    string_count = entry.data.get(CONF_STRING_COUNT, 1)
+    configured_days = entry.data.get(CONF_DAYS, 1)
+    api_features = entry.data.get(CONF_API_FEATURES, [])
+    has_weather = FEATURE_WEATHER in api_features
 
     entities: list[SensorEntity] = []
 
-    # ── Celkové (součtové) senzory ──
-    for sensor_type, config in PRODUCTION_SENSORS.items():
-        entities.append(
-            SolarForecastTotalSensor(coordinator, entry, sensor_type, config, name)
-        )
+    # ── Total sensors (always created, filtered by min_days) ──
+    for sensor_type, cfg in PRODUCTION_SENSORS.items():
+        if configured_days >= cfg.get("min_days", 1):
+            entities.append(SolarForecastTotalSensor(
+                coordinator, entry, sensor_type, cfg, name
+            ))
 
-    # ── Per-string senzory ──
-    if string_count >= 1:
+    # ── Per-string sensors (only if more than 1 string) ──
+    if string_count > 1:
         for i in range(1, string_count + 1):
             string_label = entry.data.get(conf_string_name(i), f"String {i}")
-            for sensor_type, config in PRODUCTION_SENSORS.items():
-                entities.append(
-                    SolarForecastStringSensor(
-                        coordinator, entry, sensor_type, config, name, string_label, i - 1
-                    )
-                )
-    elif not string_count:
-        legacy_strings = coordinator._get_strings()
-        if len(legacy_strings) > 1:
-            for idx, s_cfg in enumerate(legacy_strings):
-                for sensor_type, config in PRODUCTION_SENSORS.items():
-                    entities.append(
-                        SolarForecastStringSensor(
-                            coordinator, entry, sensor_type, config, name, s_cfg["name"], idx
-                        )
-                    )
+            for sensor_type, cfg in PRODUCTION_SENSORS.items():
+                if configured_days >= cfg.get("min_days", 1):
+                    entities.append(SolarForecastStringSensor(
+                        coordinator, entry, sensor_type, cfg, name, string_label, i - 1
+                    ))
 
-    # ── Počasí senzory ──
-    for sensor_type, config in WEATHER_SENSORS.items():
-        entities.append(
-            SolarForecastWeatherSensor(coordinator, entry, sensor_type, config, name)
-        )
+    # ── Weather sensors (only if API key has weather feature) ──
+    if has_weather:
+        for sensor_type, cfg in WEATHER_SENSORS.items():
+            entities.append(SolarForecastWeatherSensor(
+                coordinator, entry, sensor_type, cfg, name
+            ))
 
-    # ── Horizont senzor ──
+    # ── Horizon sensor (always, but disabled by default) ──
     entities.append(SolarForecastHorizonSensor(coordinator, entry, name))
 
     async_add_entities(entities)
 
 
-# ─── Base class ─────────────────────────────────────────────────────────────
+# ─── Base ────────────────────────────────────────────────────────────────────
 
-class _SolarForecastBase(CoordinatorEntity[SolarForecastCoordinator], SensorEntity):
+class _Base(CoordinatorEntity[SolarForecastCoordinator], SensorEntity):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         super().__init__(coordinator)
         self._sensor_type = sensor_type
@@ -326,20 +351,12 @@ class _SolarForecastBase(CoordinatorEntity[SolarForecastCoordinator], SensorEnti
         self._attr_state_class = sensor_config["state_class"]
         self._attr_native_unit_of_measurement = sensor_config["unit"]
         self._attr_entity_registry_enabled_default = sensor_config["enabled"]
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": f"Solar Forecast - {name_prefix}",
-            "manufacturer": "Solar Forecast API",
-            "model": "forecast.xnas.cz",
-            "sw_version": "1.3.0",
-        }
+        self._attr_device_info = _device_info(entry, name_prefix)
 
 
-# ─── Celkové senzory ────────────────────────────────────────────────────────
+# ─── Total sensors ───────────────────────────────────────────────────────────
 
-class SolarForecastTotalSensor(_SolarForecastBase):
-    """Total (sum of all strings) production sensor."""
-
+class SolarForecastTotalSensor(_Base):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
         self._attr_name = f"{name_prefix} {sensor_config['name']}"
@@ -348,67 +365,53 @@ class SolarForecastTotalSensor(_SolarForecastBase):
     @property
     def native_value(self) -> Any:
         data: SolarForecastData | None = self.coordinator.data
-        if data is None:
-            return None
-        return _get_total_value(data, self._sensor_type)
+        return None if data is None else _total_value(data, self._sensor_type)
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
+    def extra_state_attributes(self) -> dict | None:
         data: SolarForecastData | None = self.coordinator.data
         if data is None:
             return None
         if self._sensor_type == "energy_production_today":
-            return {
-                "forecast": data.hourly_forecast,
-                "watt_hours_day": data.watt_hours_day,
-                "correction": data.correction,
-            }
+            return {"forecast": data.hourly_forecast, "watt_hours_day": data.watt_hours_day, "correction": data.correction}
         if self._sensor_type == "energy_production_tomorrow":
             return {"watt_hours_day": data.watt_hours_day}
         return None
 
 
-# ─── Per-string senzory ─────────────────────────────────────────────────────
+# ─── Per-string sensors ──────────────────────────────────────────────────────
 
-class SolarForecastStringSensor(_SolarForecastBase):
-    """Sensor for a single string."""
-
-    def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix, string_label, string_index):
+class SolarForecastStringSensor(_Base):
+    def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix, string_label, idx):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
-        self._string_index = string_index
+        self._idx = idx
         self._attr_name = f"{name_prefix} {string_label} {sensor_config['name']}"
-        self._attr_unique_id = f"{entry.entry_id}_str{string_index}_{sensor_type}"
+        self._attr_unique_id = f"{entry.entry_id}_str{idx}_{sensor_type}"
 
     @property
     def native_value(self) -> Any:
         data: SolarForecastData | None = self.coordinator.data
-        if data is None or self._string_index >= len(data.strings):
+        if data is None or self._idx >= len(data.strings):
             return None
-        return _get_string_value(data.strings[self._string_index], self._sensor_type)
+        return _string_value(data.strings[self._idx], self._sensor_type)
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
+    def extra_state_attributes(self) -> dict | None:
         data: SolarForecastData | None = self.coordinator.data
-        if data is None or self._string_index >= len(data.strings):
+        if data is None or self._idx >= len(data.strings):
             return None
-        sd = data.strings[self._string_index]
+        sd = data.strings[self._idx]
         if self._sensor_type == "energy_production_today":
-            return {
-                "forecast": sd.hourly_forecast,
-                "watt_hours_day": sd.watt_hours_day,
-                "correction": sd.correction,
-                "actual_calibration": sd.actual_info,
-            }
+            return {"forecast": sd.hourly_forecast, "watt_hours_day": sd.watt_hours_day,
+                    "correction": sd.correction, "actual_calibration": sd.actual_info}
         if self._sensor_type == "energy_production_tomorrow":
             return {"watt_hours_day": sd.watt_hours_day}
         return None
 
 
-# ─── Počasí senzory ─────────────────────────────────────────────────────────
+# ─── Weather sensors ─────────────────────────────────────────────────────────
 
-class SolarForecastWeatherSensor(_SolarForecastBase):
-    """Weather forecast sensor (requires API key with weather feature)."""
-
+class SolarForecastWeatherSensor(_Base):
     def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         super().__init__(coordinator, entry, sensor_type, sensor_config, name_prefix)
         self._attr_name = f"{name_prefix} {sensor_config['name']}"
@@ -416,70 +419,54 @@ class SolarForecastWeatherSensor(_SolarForecastBase):
 
     @property
     def available(self) -> bool:
-        data: SolarForecastData | None = self.coordinator.data
-        return data is not None and data.weather is not None
+        d = self.coordinator.data
+        return d is not None and d.weather is not None
 
     @property
     def native_value(self) -> Any:
-        data: SolarForecastData | None = self.coordinator.data
-        if data is None:
-            return None
-        return _get_weather_value(data, self._sensor_type)
+        d = self.coordinator.data
+        return None if d is None else _weather_value(d, self._sensor_type)
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        data: SolarForecastData | None = self.coordinator.data
-        if data is None or data.weather is None:
+    def extra_state_attributes(self) -> dict | None:
+        d = self.coordinator.data
+        if d is None or d.weather is None:
             return None
         if self._sensor_type == "weather_condition":
-            # Vrátit celou předpověď jako atribut
-            return {"forecast": data.weather.entries}
+            return {"forecast": d.weather.entries}
         return None
 
 
-# ─── Horizont senzor ────────────────────────────────────────────────────────
+# ─── Horizon sensor ───────────────────────────────────────────────────────────
 
 class SolarForecastHorizonSensor(CoordinatorEntity[SolarForecastCoordinator], SensorEntity):
-    """Sensor showing horizon obstruction data."""
-
     def __init__(self, coordinator, entry, name_prefix):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_name = f"{name_prefix} Horizon - Max elevation"
         self._attr_unique_id = f"{entry.entry_id}_horizon"
         self._attr_icon = "mdi:image-filter-hdr"
-        self._attr_device_class = None
-        self._attr_state_class = None
         self._attr_native_unit_of_measurement = "°"
-        self._attr_entity_registry_enabled_default = False  # defaultně skrytý
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": f"Solar Forecast - {name_prefix}",
-            "manufacturer": "Solar Forecast API",
-            "model": "forecast.xnas.cz",
-            "sw_version": "1.3.0",
-        }
+        self._attr_entity_registry_enabled_default = False
+        self._attr_device_info = _device_info(entry, name_prefix)
 
     @property
     def available(self) -> bool:
-        data: SolarForecastData | None = self.coordinator.data
-        return data is not None and data.horizon is not None
+        d = self.coordinator.data
+        return d is not None and d.horizon is not None
 
     @property
     def native_value(self) -> Any:
-        data: SolarForecastData | None = self.coordinator.data
-        if data is None or data.horizon is None:
-            return None
-        return data.horizon.get("max_elevation")
+        d = self.coordinator.data
+        return None if (d is None or d.horizon is None) else d.horizon.get("max_elevation")
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        data: SolarForecastData | None = self.coordinator.data
-        if data is None or data.horizon is None:
+    def extra_state_attributes(self) -> dict | None:
+        d = self.coordinator.data
+        if d is None or d.horizon is None:
             return None
-        h = data.horizon
         return {
-            "mean_elevation": h.get("mean_elevation"),
-            "azimuth": h.get("horizon", {}).get("azimuth"),
-            "elevation": h.get("horizon", {}).get("elevation"),
+            "mean_elevation": d.horizon.get("mean_elevation"),
+            "azimuth": d.horizon.get("horizon", {}).get("azimuth"),
+            "elevation": d.horizon.get("horizon", {}).get("elevation"),
         }
