@@ -5,31 +5,48 @@
         "title": "Solar Forecast API",
         "description": "Zadejte základní parametry a počet stringů.",
         "data": {
-          "name": "Název (napr. Jih, Vychod+Zapad)",
+          "name": "Název",
           "api_key": "API klíč (volitelné, pro kalibraci)",
           "latitude": "Zeměpisná šířka",
           "longitude": "Zeměpisná délka",
-          "string_count": "Počet stringů (1–10)"
+          "string_count": "Počet stringů (1–10)",
+          "update_interval": "Interval aktualizace"
+        },
+        "data_description": {
+          "api_key": "Bez API klíče je dostupný pouze interval 60 minut.",
+          "update_interval": "Bez API klíče lze zvolit pouze 60 minut."
         }
       },
       "string": {
         "title": "Konfigurace stringu {index} z {total}",
-        "description": "Zadejte parametry stringu {index}.",
+        "description": "Zadejte parametry pro string č. {index}.",
         "data": {
-          "string_{index}_name": "Název stringu (napr. Vychod, Zapad, Jih)",
-          "string_{index}_declination": "Sklon panelů [°] (0=horizont., 90=vertik.)",
-          "string_{index}_azimuth": "Azimut [°] (0=jih, -90=vychod, 90=zapad)",
-          "string_{index}_wp": "Instalovaný výkon [Wp]",
-          "string_{index}_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
-          "string_{index}_correction": "Korekční faktor (volitelné, 0.1–2.0; prázdné = automaticky)"
+          "str_name": "Název stringu (např. Vychod, Západ, Jih)",
+          "str_declination": "Sklon panelů [°] (0 = horizont., 90 = vertik.)",
+          "str_azimuth": "Azimut [°] (0 = jih, −90 = východ, 90 = západ)",
+          "str_wp": "Instalovaný výkon [Wp]",
+          "str_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
+          "str_correction": "Korekční faktor (volitelné, 0.1–2.0; nevyplněno = automaticky)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nelze se připojit k API serveru forecast.xnas.cz"
+      "cannot_connect": "Nelze se připojit k API serveru forecast.xnas.cz",
+      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč."
     },
     "abort": {
       "already_configured": "Tato konfigurace již existuje"
+    }
+  },
+  "selector": {
+    "update_interval": {
+      "options": {
+        "5": "5 minut",
+        "15": "15 minut",
+        "30": "30 minut",
+        "45": "45 minut",
+        "60": "60 minut"
+      }
     }
   }
 }

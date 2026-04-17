@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_UPDATE_INTERVAL,
     DOMAIN,
     DEFAULT_API_URL,
     CONF_API_KEY,
@@ -261,7 +262,7 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=config.get(CONF_UPDATE_INTERVAL, UPDATE_INTERVAL)),
         )
         self.config = config
         self.hass = hass

@@ -7,10 +7,19 @@ CONF_API_KEY = "api_key"
 CONF_LATITUDE = "latitude"
 CONF_LONGITUDE = "longitude"
 CONF_NAME = "name"
+CONF_UPDATE_INTERVAL = "update_interval"
 
 # Per-string config keys (up to 10 strings)
 MAX_STRINGS = 10
 CONF_STRING_COUNT = "string_count"
+
+# These are the FORM field keys used in the string step (static, for translations)
+CONF_STR_NAME = "str_name"
+CONF_STR_DECLINATION = "str_declination"
+CONF_STR_AZIMUTH = "str_azimuth"
+CONF_STR_WP = "str_wp"
+CONF_STR_ACTUAL_ENTITY = "str_actual_entity"
+CONF_STR_CORRECTION = "str_correction"
 
 
 def conf_string_name(i: int) -> str:
@@ -49,4 +58,6 @@ CONF_ACTUAL_ENTITY = "actual_entity"
 CONF_CORRECTION = "correction"
 
 DEFAULT_NAME = "Solar Forecast"
-UPDATE_INTERVAL = 1800  # 30 minut
+UPDATE_INTERVAL = 3600  # default 60 minut
+
+INTERVAL_OPTIONS = [5, 15, 30, 45, 60]  # minuty

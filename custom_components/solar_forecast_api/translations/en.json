@@ -3,33 +3,50 @@
     "step": {
       "user": {
         "title": "Solar Forecast API",
-        "description": "Enter basic parameters and the number of strings.",
+        "description": "Enter basic parameters and number of strings.",
         "data": {
-          "name": "Name (e.g. South, East+West)",
+          "name": "Name",
           "api_key": "API key (optional, for calibration)",
           "latitude": "Latitude",
           "longitude": "Longitude",
-          "string_count": "Number of strings (1–10)"
+          "string_count": "Number of strings (1–10)",
+          "update_interval": "Update interval"
+        },
+        "data_description": {
+          "api_key": "Without an API key only the 60-minute interval is available.",
+          "update_interval": "Without an API key only 60 minutes is available."
         }
       },
       "string": {
         "title": "String {index} of {total} configuration",
         "description": "Enter parameters for string {index}.",
         "data": {
-          "string_{index}_name": "String name (e.g. East, West, South)",
-          "string_{index}_declination": "Panel tilt [°] (0=horiz., 90=vert.)",
-          "string_{index}_azimuth": "Azimuth [°] (0=south, -90=east, 90=west)",
-          "string_{index}_wp": "Installed power [Wp]",
-          "string_{index}_actual_entity": "Daily production sensor for calibration (optional)",
-          "string_{index}_correction": "Correction factor (optional, 0.1–2.0; empty = auto)"
+          "str_name": "String name (e.g. East, West, South)",
+          "str_declination": "Panel tilt [°] (0 = horiz., 90 = vert.)",
+          "str_azimuth": "Azimuth [°] (0 = south, −90 = east, 90 = west)",
+          "str_wp": "Installed power [Wp]",
+          "str_actual_entity": "Daily production sensor for calibration (optional)",
+          "str_correction": "Correction factor (optional, 0.1–2.0; empty = auto)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the API server forecast.xnas.cz"
+      "cannot_connect": "Cannot connect to the API server forecast.xnas.cz",
+      "interval_requires_key": "Intervals shorter than 60 minutes require an API key."
     },
     "abort": {
       "already_configured": "This configuration already exists"
+    }
+  },
+  "selector": {
+    "update_interval": {
+      "options": {
+        "5": "5 minutes",
+        "15": "15 minutes",
+        "30": "30 minutes",
+        "45": "45 minutes",
+        "60": "60 minutes"
+      }
     }
   }
 }
