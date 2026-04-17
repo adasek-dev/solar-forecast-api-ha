@@ -20,7 +20,6 @@ from .coordinator import SolarForecastCoordinator, SolarForecastData
 
 _LOGGER = logging.getLogger(__name__)
 
-
 SENSOR_TYPES: dict[str, dict[str, Any]] = {
     "power_production_now": {
         "name": "Estimated power production - now",
@@ -94,14 +93,6 @@ SENSOR_TYPES: dict[str, dict[str, Any]] = {
         "unit": None,
         "enabled": False,
     },
-    "correction_factor": {
-        "name": "Correction factor",
-        "icon": "mdi:tune",
-        "device_class": None,
-        "state_class": None,
-        "unit": None,
-        "enabled": False,
-    },
 }
 
 
@@ -117,13 +108,7 @@ async def async_setup_entry(
     entities = []
     for sensor_type, config in SENSOR_TYPES.items():
         entities.append(
-            SolarForecastSensor(
-                coordinator=coordinator,
-                entry=entry,
-                sensor_type=sensor_type,
-                sensor_config=config,
-                name_prefix=name,
-            )
+            SolarForecastSensor(coordinator, entry, sensor_type, config, name)
         )
 
     async_add_entities(entities)
@@ -132,18 +117,10 @@ async def async_setup_entry(
 class SolarForecastSensor(CoordinatorEntity[SolarForecastCoordinator], SensorEntity):
     """Representation of a Solar Forecast sensor."""
 
-    def __init__(
-        self,
-        coordinator: SolarForecastCoordinator,
-        entry: ConfigEntry,
-        sensor_type: str,
-        sensor_config: dict[str, Any],
-        name_prefix: str,
-    ) -> None:
+    def __init__(self, coordinator, entry, sensor_type, sensor_config, name_prefix):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._sensor_type = sensor_type
-        self._sensor_config = sensor_config
         self._entry = entry
 
         self._attr_name = f"{name_prefix} {sensor_config['name']}"
@@ -154,13 +131,12 @@ class SolarForecastSensor(CoordinatorEntity[SolarForecastCoordinator], SensorEnt
         self._attr_native_unit_of_measurement = sensor_config["unit"]
         self._attr_entity_registry_enabled_default = sensor_config["enabled"]
 
-        # Device info
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": f"Solar Forecast - {name_prefix}",
             "manufacturer": "Solar Forecast API",
-            "model": "Custom API",
-            "sw_version": "2.2",
+            "model": "forecast.xnas.cz",
+            "sw_version": "1.1.0",
         }
 
     @property
@@ -170,28 +146,20 @@ class SolarForecastSensor(CoordinatorEntity[SolarForecastCoordinator], SensorEnt
         if data is None:
             return None
 
-        if self._sensor_type == "power_production_now":
-            return data.power_now
-        elif self._sensor_type == "energy_production_today":
-            return data.energy_today
-        elif self._sensor_type == "energy_production_tomorrow":
-            return data.energy_tomorrow
-        elif self._sensor_type == "energy_production_today_remaining":
-            return data.energy_remaining_today
-        elif self._sensor_type == "energy_next_hour":
-            return data.energy_next_hour
-        elif self._sensor_type == "peak_power_today":
-            return data.peak_power_today
-        elif self._sensor_type == "peak_time_today":
-            return data.peak_time_today
-        elif self._sensor_type == "peak_power_tomorrow":
-            return data.peak_power_tomorrow
-        elif self._sensor_type == "peak_time_tomorrow":
-            return data.peak_time_tomorrow
-        elif self._sensor_type == "correction_factor":
-            return data.correction
+        mapping = {
+            "power_production_now": lambda: data.power_now,
+            "energy_production_today": lambda: data.energy_today,
+            "energy_production_tomorrow": lambda: data.energy_tomorrow,
+            "energy_production_today_remaining": lambda: data.energy_remaining_today,
+            "energy_next_hour": lambda: data.energy_next_hour,
+            "peak_power_today": lambda: data.peak_power_today,
+            "peak_time_today": lambda: data.peak_time_today,
+            "peak_power_tomorrow": lambda: data.peak_power_tomorrow,
+            "peak_time_tomorrow": lambda: data.peak_time_tomorrow,
+        }
 
-        return None
+        getter = mapping.get(self._sensor_type)
+        return getter() if getter else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -200,17 +168,14 @@ class SolarForecastSensor(CoordinatorEntity[SolarForecastCoordinator], SensorEnt
         if data is None:
             return None
 
-        # Add hourly forecast as attribute on energy_production_today
         if self._sensor_type == "energy_production_today":
             return {
                 "forecast": data.hourly_forecast,
                 "watt_hours_day": data.watt_hours_day,
+                "correction": data.correction,
             }
 
-        # Add daily summary on tomorrow sensor
         if self._sensor_type == "energy_production_tomorrow":
-            return {
-                "watt_hours_day": data.watt_hours_day,
-            }
+            return {"watt_hours_day": data.watt_hours_day}
 
         return None

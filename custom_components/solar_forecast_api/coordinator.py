@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     DOMAIN,
-    CONF_API_URL,
+    DEFAULT_API_URL,
     CONF_API_KEY,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -22,6 +22,8 @@ from .const import (
     CONF_DECLINATION_2,
     CONF_AZIMUTH_2,
     CONF_KWP_2,
+    CONF_ACTUAL_ENTITY,
+    CONF_CORRECTION,
     UPDATE_INTERVAL,
 )
 
@@ -36,61 +38,49 @@ class SolarForecastData:
         self.raw = raw
         result = raw.get("result", {})
 
-        # watts: {"2026-04-15 07:00:00": 129, ...}
         self.watts = result.get("watts", {})
-        # watt_hours: cumulative per day
         self.watt_hours = result.get("watt_hours", {})
-        # watt_hours_period: per period
         self.watt_hours_period = result.get("watt_hours_period", {})
-        # watt_hours_day: {"2026-04-15": 17234, ...}
         self.watt_hours_day = result.get("watt_hours_day", {})
 
-        # Parse correction factor
         msg = raw.get("message", {})
         info = msg.get("info", {})
         self.correction = info.get("correction")
 
     @property
     def sorted_days(self) -> list[str]:
-        """Get sorted list of forecast days."""
         return sorted(self.watt_hours_day.keys())
 
     @property
     def today(self) -> str | None:
-        """Get today's date string."""
         days = self.sorted_days
         return days[0] if days else None
 
     @property
     def tomorrow(self) -> str | None:
-        """Get tomorrow's date string."""
         days = self.sorted_days
         return days[1] if len(days) > 1 else None
 
     @property
     def energy_today(self) -> float | None:
-        """Total energy forecast today in kWh."""
         if self.today:
             return round(self.watt_hours_day.get(self.today, 0) / 1000, 2)
         return None
 
     @property
     def energy_tomorrow(self) -> float | None:
-        """Total energy forecast tomorrow in kWh."""
         if self.tomorrow:
             return round(self.watt_hours_day.get(self.tomorrow, 0) / 1000, 2)
         return None
 
     @property
     def power_now(self) -> int:
-        """Current estimated power in W."""
         now = datetime.now()
         current_key = now.strftime("%Y-%m-%d %H:00:00")
         return self.watts.get(current_key, 0)
 
     @property
     def peak_power_today(self) -> int:
-        """Peak power today in W."""
         if not self.today:
             return 0
         return max(
@@ -100,18 +90,15 @@ class SolarForecastData:
 
     @property
     def peak_time_today(self) -> str | None:
-        """Time of peak power today."""
         if not self.today:
             return None
         today_watts = {k: w for k, w in self.watts.items() if k.startswith(self.today)}
         if not today_watts:
             return None
-        peak_key = max(today_watts, key=today_watts.get)
-        return peak_key
+        return max(today_watts, key=today_watts.get)
 
     @property
     def peak_power_tomorrow(self) -> int:
-        """Peak power tomorrow in W."""
         if not self.tomorrow:
             return 0
         return max(
@@ -121,18 +108,15 @@ class SolarForecastData:
 
     @property
     def peak_time_tomorrow(self) -> str | None:
-        """Time of peak power tomorrow."""
         if not self.tomorrow:
             return None
         tmrw_watts = {k: w for k, w in self.watts.items() if k.startswith(self.tomorrow)}
         if not tmrw_watts:
             return None
-        peak_key = max(tmrw_watts, key=tmrw_watts.get)
-        return peak_key
+        return max(tmrw_watts, key=tmrw_watts.get)
 
     @property
     def energy_remaining_today(self) -> float | None:
-        """Remaining energy today in kWh."""
         if not self.today:
             return None
         now = datetime.now()
@@ -145,22 +129,13 @@ class SolarForecastData:
 
     @property
     def energy_next_hour(self) -> float | None:
-        """Energy forecast for next hour in kWh."""
         now = datetime.now()
         next_key = (now + timedelta(hours=1)).strftime("%Y-%m-%d %H:00:00")
-        w = self.watts.get(next_key, 0)
-        return round(w / 1000, 2)
+        return round(self.watts.get(next_key, 0) / 1000, 2)
 
     @property
     def hourly_forecast(self) -> list[dict]:
-        """Hourly forecast as list of dicts for graph attributes."""
-        result = []
-        for k in sorted(self.watts.keys()):
-            result.append({
-                "datetime": k,
-                "power": self.watts[k],
-            })
-        return result
+        return [{"datetime": k, "power": self.watts[k]} for k in sorted(self.watts.keys())]
 
 
 class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
@@ -175,11 +150,11 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
         self.config = config
-        self._build_url()
+        self.hass = hass
 
-    def _build_url(self) -> None:
+    def _build_url(self) -> str:
         """Build the API URL from config."""
-        base = self.config[CONF_API_URL].rstrip("/")
+        base = DEFAULT_API_URL.rstrip("/")
         api_key = self.config.get(CONF_API_KEY, "")
         lat = self.config[CONF_LATITUDE]
         lon = self.config[CONF_LONGITUDE]
@@ -187,7 +162,6 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         az = self.config[CONF_AZIMUTH]
         kwp = self.config[CONF_KWP]
 
-        # Build path
         if api_key:
             path = f"/estimate/{api_key}"
         else:
@@ -202,16 +176,38 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         if dec2 and kwp2 and kwp2 > 0:
             path += f"/{dec2}/{az2}/{kwp2}"
 
-        self.api_url = f"{base}{path}?days=7"
-        _LOGGER.info("Solar Forecast API URL: %s", self.api_url)
+        # Query params
+        params = ["days=7"]
+
+        # Correction factor
+        correction = self.config.get(CONF_CORRECTION, 0)
+        if correction and correction > 0:
+            params.append(f"correction={correction}")
+
+        # Actual entity
+        actual_entity = self.config.get(CONF_ACTUAL_ENTITY, "")
+        if actual_entity:
+            state = self.hass.states.get(actual_entity)
+            if state and state.state not in ("unknown", "unavailable"):
+                try:
+                    actual_kwh = float(state.state)
+                    if actual_kwh > 0:
+                        params.append(f"actual={actual_kwh}")
+                except (ValueError, TypeError):
+                    pass
+
+        url = f"{base}{path}?{'&'.join(params)}"
+        return url
 
     async def _async_update_data(self) -> SolarForecastData:
         """Fetch data from API."""
+        url = self._build_url()
+        _LOGGER.debug("Fetching solar forecast: %s", url)
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    self.api_url,
-                    timeout=aiohttp.ClientTimeout(total=30),
+                    url, timeout=aiohttp.ClientTimeout(total=30)
                 ) as resp:
                     if resp.status != 200:
                         raise UpdateFailed(f"HTTP {resp.status}")

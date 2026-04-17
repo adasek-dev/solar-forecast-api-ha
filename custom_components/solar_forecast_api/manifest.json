@@ -3,9 +3,9 @@
   "name": "Solar Forecast API",
   "codeowners": [],
   "config_flow": true,
-  "documentation": "",
+  "documentation": "https://github.com/xnas-cz/solar-forecast-api-ha",
   "iot_class": "cloud_polling",
   "issue_tracker": "",
   "requirements": [],
-  "version": "1.0.0"
+  "version": "1.1.0"
 }

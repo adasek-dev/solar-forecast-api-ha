@@ -3,35 +3,35 @@
     "step": {
       "user": {
         "title": "Solar Forecast API",
-        "description": "Nastavte připojení k vašemu Solar Forecast API serveru.",
+        "description": "Zadejte parametry vasi solarni elektrarny.",
         "data": {
-          "name": "Název (např. Jih, Východ+Západ)",
-          "api_url": "URL API serveru (např. http://192.168.1.100:5001)",
-          "api_key": "API klíč (volitelné)",
-          "latitude": "Zeměpisná šířka",
-          "longitude": "Zeměpisná délka",
-          "declination": "Sklon panelů [°] (0=horiz., 90=vertik.)",
-          "azimuth": "Azimut [°] forecast.solar konvence (0=jih, -90=východ, 90=západ)",
-          "kwp": "Instalovaný výkon [kWp]"
+          "name": "Nazev (napr. Jih, Vychod+Zapad)",
+          "api_key": "API klic (volitelne, pro kalibraci)",
+          "latitude": "Zemepisna sirka",
+          "longitude": "Zemepisna delka",
+          "declination": "Sklon panelu [stupne] (0=horiz., 90=vertik.)",
+          "azimuth": "Azimut [stupne] (0=jih, -90=vychod, 90=zapad)",
+          "kwp": "Instaloany vykon [kWp]"
         }
       },
       "plane2": {
-        "title": "Druhé pole panelů (volitelné)",
-        "description": "Pokud máte panely na dvou stranách střechy, zadejte parametry druhého pole. Jinak nechte prázdné.",
+        "title": "Dalsi nastaveni",
+        "description": "Druhe pole panelu a volitelna kalibrace.",
         "data": {
-          "second_plane": "Přidat druhé pole panelů?",
-          "declination_2": "Sklon 2. pole [°]",
-          "azimuth_2": "Azimut 2. pole [°]",
-          "kwp_2": "Výkon 2. pole [kWp]"
+          "second_plane": "Pridat druhe pole panelu?",
+          "declination_2": "Sklon 2. pole [stupne]",
+          "azimuth_2": "Azimut 2. pole [stupne]",
+          "kwp_2": "Vykon 2. pole [kWp]",
+          "actual_entity": "Senzor denni vyroby pro kalibraci (volitelne)",
+          "correction": "Korekcni faktor (0 = automaticky, 0.1-1.5 = rucne)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nelze se připojit k API serveru",
-      "invalid_response": "Neplatná odpověď z API serveru"
+      "cannot_connect": "Nelze se pripojit k API serveru forecast.xnas.cz"
     },
     "abort": {
-      "already_configured": "Tato konfigurace již existuje"
+      "already_configured": "Tato konfigurace jiz existuje"
     }
   }
 }
