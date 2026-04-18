@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Solar Forecast API – základní nastavení",
+        "description": "Zadejte základní parametry. Bez API klíče: 1 string, 1 den předpovědi, interval 60 min.",
+        "data": {
+          "name": "Název",
+          "api_key": "API klíč (volitelné)",
+          "latitude": "Zeměpisná šířka",
+          "longitude": "Zeměpisná délka",
+          "string_count": "Počet stringů (1–10)",
+          "update_interval": "Interval aktualizace"
+        },
+        "data_description": {
+          "api_key": "Po zadání klíče se automaticky načtou dostupné funkce (weather, calibration, timewindows).",
+          "string_count": "Bez API klíče je možný pouze 1 string."
+        }
+      },
+      "string": {
+        "title": "String {index} z {total}",
+        "description": "Zadejte parametry pro string č. {index}.",
+        "data": {
+          "str_name": "Název stringu (např. Východ, Západ, Jih)",
+          "str_declination": "Sklon panelů [°] (0 = horizont., 90 = vertik.)",
+          "str_azimuth": "Azimut [°] (0 = jih, −90 = východ, 90 = západ)",
+          "str_wp": "Instalovaný výkon [Wp]",
+          "str_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
+          "str_correction": "Korekční faktor (volitelné, 0.1–2.0; nevyplněno = automaticky)"
+        }
+      },
+      "advanced": {
+        "title": "Pokročilé nastavení",
+        "description": "Dostupné funkce vašeho API klíče: {features}",
+        "data": {
+          "days": "Počet dní předpovědi",
+          "resolution": "Rozlišení výpočtu",
+          "damping": "Tlumení ráno/večer (0 = vypnuto, 1 = maximální)",
+          "no_horizon": "Vypnout PVGIS horizont (nedoporučeno)",
+          "feature_weather": "Povolit předpověď počasí (weather)",
+          "feature_actual": "Povolit kalibraci podle skutečné výroby (actual)",
+          "feature_calibration": "Povolit ukládání kalibrace (calibration)",
+          "feature_timewindows": "Povolit časová okna přebytku (timewindows)"
+        },
+        "data_description": {
+          "damping": "Snižuje odhadovaný výkon při nízkém slunečním úhlu. Hodnota 0.5 je doporučená."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit k API serveru forecast.xnas.cz",
+      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč.",
+      "invalid_api_key": "Neplatný API klíč nebo klíč nemá žádné povolené funkce."
+    },
+    "abort": {
+      "already_configured": "Tato konfigurace již existuje"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Upravit nastavení",
+        "description": "Změňte název, API klíč, počet stringů nebo interval.",
+        "data": {
+          "name": "Název",
+          "api_key": "API klíč (volitelné)",
+          "string_count": "Počet stringů (1–10)",
+          "update_interval": "Interval aktualizace",
+          "latitude": "Zeměpisná šířka",
+          "longitude": "Zeměpisná délka"
+        },
+        "data_description": {
+          "api_key": "Změna klíče znovu načte dostupné funkce z API."
+        }
+      },
+      "string": {
+        "title": "String {index} z {total}",
+        "description": "Upravte parametry stringu č. {index}.",
+        "data": {
+          "str_name": "Název stringu",
+          "str_declination": "Sklon panelů [°]",
+          "str_azimuth": "Azimut [°]",
+          "str_wp": "Instalovaný výkon [Wp]",
+          "str_actual_entity": "Senzor denní výroby pro kalibraci (volitelné)",
+          "str_correction": "Korekční faktor (volitelné)"
+        }
+      },
+      "advanced": {
+        "title": "Pokročilé nastavení",
+        "description": "Dostupné funkce vašeho API klíče: {features}",
+        "data": {
+          "days": "Počet dní předpovědi",
+          "resolution": "Rozlišení výpočtu",
+          "damping": "Tlumení ráno/večer",
+          "no_horizon": "Vypnout PVGIS horizont",
+          "feature_weather": "Povolit předpověď počasí (weather)",
+          "feature_actual": "Povolit kalibraci podle skutečné výroby (actual)",
+          "feature_calibration": "Povolit ukládání kalibrace (calibration)",
+          "feature_timewindows": "Povolit časová okna přebytku (timewindows)"
+        }
+      }
+    },
+    "error": {
+      "interval_requires_key": "Interval kratší než 60 minut vyžaduje API klíč.",
+      "invalid_api_key": "Neplatný API klíč nebo klíč nemá žádné povolené funkce."
+    }
+  }
+}
