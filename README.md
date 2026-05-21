@@ -1,85 +1,166 @@
-# Solar Forecast API - Home Assistant Integration
+# Solar Forecast API – Home Assistant Integration
 
-Custom Home Assistant integration for [Solar Forecast API](https://github.com/YOUR-USERNAME/solar-forecast-api) - self-hosted solar production forecast.
+Custom integrace pro Home Assistant pro předpověď solární výroby přes [forecast.xnas.cz](https://forecast.xnas.cz/).
 
-Uses Open-Meteo (weather) + pvlib (solar model) + PVGIS (horizon) as a free, unlimited replacement for forecast.solar.
+Využívá Open-Meteo (počasí) + pvlib (solární model) + PVGIS (horizont) jako bezplatnou, neomezenou alternativu k forecast.solar.
 
-## Features
+---
 
-- Solar production forecast (today + 6 days)
-- Multiple panel planes in one config (east/west roof etc.)
-- PVGIS horizon (automatic terrain shading)
-- Auto-calibration via actual production data
-- Weather forecast endpoint
-- Time windows for controllable loads
-- API keys with per-user rate limiting
-- forecast.solar compatible API format
+## Funkce
 
-## Installation
+- Předpověď solární výroby na dnes + až 6 dní dopředu
+- Až 10 stringů (různé orientace střechy – jih/západ/východ atd.)
+- Per-string senzory při více než 1 stringu
+- Automatické stínování terénem z PVGIS horizontu
+- Automatická kalibrace přes skutečnou denní výrobu
+- Předpověď počasí (teplota, oblačnost, vítr)
+- Časová okna přebytků pro řízení spotřebičů
+- API klíče s per-user rate limitingem
+- Kompatibilní formát s forecast.solar
 
-### HACS (recommended)
+---
 
-1. Open HACS in Home Assistant
-2. Click the three dots in the top right → **Custom repositories**
-3. Add URL: `https://github.com/YOUR-USERNAME/solar-forecast-api-ha`
-4. Category: **Integration**
-5. Click **Add**
-6. Search for "Solar Forecast API" and install
-7. Restart Home Assistant
+## Instalace
 
-### Manual
+### Přes HACS (doporučeno)
 
-1. Download the latest release
-2. Copy `custom_components/solar_forecast_api/` to your HA `custom_components/` directory
-3. Restart Home Assistant
+1. Otevřete HACS v Home Assistantu
+2. Klikněte na tři tečky vpravo nahoře → **Custom repositories**
+3. Přidejte URL: `https://github.com/adasek-dev/solar-forecast-api-ha`
+4. Kategorie: **Integration**
+5. Klikněte **Add**
+6. Vyhledejte „Solar Forecast API" a nainstalujte
+7. Restartujte Home Assistant
 
-## Configuration
+### Ručně
 
-1. Go to **Settings → Devices & Services → Add Integration**
-2. Search for **Solar Forecast API**
-3. Enter:
-   - **Name**: e.g. "East+West"
-   - **API URL**: `http://YOUR-SERVER-IP:5001`
-   - **API Key**: your key (optional)
-   - **Latitude/Longitude**: your location
-   - **Declination**: panel tilt (0-90°)
-   - **Azimuth**: panel orientation, forecast.solar convention (0=south, -90=east, 90=west)
-   - **kWp**: installed power
-4. Optionally add a second panel plane
+1. Stáhněte poslední release
+2. Zkopírujte `custom_components/solar_forecast_api/` do složky `custom_components/` ve vašem HA
+3. Restartujte Home Assistant
 
-You can add the integration multiple times for different configurations.
+---
 
-## Sensors
+## Konfigurace
 
-| Sensor | Description | Unit |
-|--------|-------------|------|
-| Estimated power production - now | Current estimated power | W |
-| Estimated energy production - today | Total forecast today | kWh |
-| Estimated energy production - tomorrow | Total forecast tomorrow | kWh |
-| Estimated energy production - remaining today | Remaining energy today | kWh |
-| Estimated energy production - next hour | Next hour forecast | kWh |
-| Highest power - today | Peak power today | W |
-| Peak time - today | Time of peak power | datetime |
-| Highest power - tomorrow | Peak power tomorrow | W |
-| Peak time - tomorrow | Time of peak power | datetime |
+1. Jděte na **Settings → Devices & Services → Add Integration**
+2. Vyhledejte **Solar Forecast API**
+3. Vyplňte:
+   - **Název**: např. „Moje FVE"
+   - **API klíč**: váš klíč (volitelné – bez klíče funguje jen 1 den, interval 60 min)
+   - **Zeměpisná šířka / délka**: vaše poloha (předvyplněna z HA)
+   - **Počet stringů**: 1–10
+4. Pro každý string vyplňte:
+   - **Název stringu**: např. „Jih", „Západ"
+   - **Sklon panelů [°]**: 0–90
+   - **Azimut [°]**: orientace panelů (viz tabulka níže)
+   - **Instalovaný výkon [Wp]**: výkon stringu ve watt-peak
+   - **Senzor denní výroby** *(volitelné)*: entita v HA pro kalibraci
+   - **Korekční faktor** *(volitelné)*: manuální korekce výkonu (0 = bez korekce)
 
-## Azimuth Convention
+### Pokročilá nastavení (s API klíčem)
 
-This integration uses the **forecast.solar** azimuth convention:
+| Parametr | Popis | Výchozí |
+|----------|-------|---------|
+| Počet dní | Počet dní předpovědi (1–7) | 1 (bez klíče), 4 (s klíčem) |
+| Interval aktualizace | Jak často se data stahují (min) | 60 |
+| Rozlišení | Hodinové nebo 15minutové hodnoty | 60 min |
+| Tlumení (damping) | Tlumení výkonu ráno/večer (0–1) | 0 |
+| Bez PVGIS horizontu | Vypnout automatické stínování terénem | Ne |
 
-| Direction | Azimuth |
-|-----------|---------|
-| North | ±180° |
-| East | -90° |
-| South | 0° |
-| West | 90° |
+---
 
-**Conversion from pvlib/HA (0=North):** `azimuth_fs = azimuth_pvlib - 180`
+## Azimut – konvence
 
-## Requirements
+Integrace používá **forecast.solar** konvenci azimutu:
 
-You need a running Solar Forecast API server. See the [server repository](https://github.com/YOUR-USERNAME/solar-forecast-api) for setup instructions.
+| Světová strana | Azimut |
+|----------------|--------|
+| Jih | 0° |
+| Západ | 90° |
+| Východ | -90° |
+| Sever | ±180° |
 
-## License
+> **Převod z pvlib/HA konvence** (0 = sever): `azimut_fs = azimut_pvlib - 180`
+
+---
+
+## Senzory
+
+### Celkové senzory (vždy)
+
+| Senzor | Popis | Jednotka |
+|--------|-------|----------|
+| Estimated power production - now | Aktuální odhadovaný výkon | W |
+| Estimated energy production - today | Celková předpověď dnes | kWh |
+| Estimated energy production - tomorrow | Celková předpověď zítra | kWh |
+| Estimated energy production - remaining today | Zbývající výroba dnes | kWh |
+| Estimated energy production - next hour | Předpověď příští hodiny | kWh |
+| Highest power - today | Maximální výkon dnes | W |
+| Peak time - today | Čas maximálního výkonu dnes | datetime |
+| Highest power - tomorrow | Maximální výkon zítra | W |
+| Peak time - tomorrow | Čas maximálního výkonu zítra | datetime |
+| Estimated energy production - day +2 až +6 | Předpověď dalších dní | kWh |
+
+### Per-string senzory (pouze při 2 a více stringách)
+
+Pro každý string se vytvoří stejná sada senzorů s prefixem názvu stringu, např.:
+- `String 1 Estimated energy production - today`
+- `String 2 Highest power - today`
+- atd.
+
+### Počasí (vyžaduje API klíč s funkcí `weather`)
+
+| Senzor | Popis | Jednotka |
+|--------|-------|----------|
+| Weather - Temperature | Aktuální teplota | °C |
+| Weather - Sky clarity | Jasnost oblohy | % |
+| Weather - Condition | Slovní popis počasí | – |
+| Weather - Wind speed | Rychlost větru | km/h |
+| Weather - Wind direction | Směr větru | – |
+
+### Horizont (vypnuto ve výchozím stavu)
+
+| Senzor | Popis |
+|--------|-------|
+| Horizon - Max elevation | Maximální elevace horizontu (PVGIS) |
+
+---
+
+## Funkce API klíče
+
+API klíč odemyká rozšířené funkce. Dostupné funkce se automaticky zjistí po zadání klíče:
+
+| Funkce | Popis |
+|--------|-------|
+| `actual` | Kalibrace přes skutečnou výrobu |
+| `calibration` | Ukládání kalibrační historie |
+| `weather` | Senzory předpovědi počasí |
+| `timewindows` | Časová okna přebytků |
+
+Bez API klíče: 1 den předpovědi, interval 60 minut, bez kalibrace a počasí.
+
+---
+
+## Atributy senzorů
+
+Senzor `Estimated energy production - today` obsahuje atribut `forecast` s hodinovými hodnotami výkonu:
+
+```json
+[
+  {"datetime": "2026-05-21 06:00:00", "power": 120},
+  {"datetime": "2026-05-21 07:00:00", "power": 540},
+  ...
+]
+```
+
+---
+
+## Požadavky
+
+Potřebujete přístup k API na adrese [https://forecast.xnas.cz](https://forecast.xnas.cz/).
+
+---
+
+## Licence
 
 MIT
