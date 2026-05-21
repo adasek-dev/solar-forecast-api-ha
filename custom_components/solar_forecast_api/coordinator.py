@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for Solar Forecast API."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -364,21 +365,21 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
                 })
             return strings
 
-    def _build_estimate_url(self, string_cfg: dict) -> str:
+    def _build_string_url(self, string_cfg: dict) -> str:
+        """Build a URL for a single string."""
         base = DEFAULT_API_URL.rstrip("/")
         api_key = self.config.get(CONF_API_KEY, "")
         lat = self.config[CONF_LATITUDE]
         lon = self.config[CONF_LONGITUDE]
-        dec = string_cfg["declination"]
-        az = string_cfg["azimuth"]
-        kwp = string_cfg["kwp"]
         days = self.config.get(CONF_DAYS, 4)
         resolution = self.config.get(CONF_RESOLUTION, 60)
         damping = self.config.get(CONF_DAMPING, 0.0)
         no_horizon = self.config.get(CONF_NO_HORIZON, False)
+        feature_actual_on = self.config.get(CONF_FEATURE_ACTUAL, True)
 
         path = f"/estimate/{api_key}" if api_key else "/estimate"
-        path += f"/{lat}/{lon}/{dec}/{az}/{kwp}"
+        path += f"/{lat}/{lon}"
+        path += f"/{string_cfg['declination']}/{string_cfg['azimuth']}/{string_cfg['kwp']}"
 
         params = [f"days={days}"]
         if resolution == 15 and api_key:
@@ -392,17 +393,17 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         if correction is not None and correction > 0:
             params.append(f"correction={correction}")
 
-        actual_entity = string_cfg.get("actual_entity", "")
-        feature_actual_on = self.config.get(CONF_FEATURE_ACTUAL, True)
-        if actual_entity and feature_actual_on:
-            state = self.hass.states.get(actual_entity)
-            if state and state.state not in ("unknown", "unavailable"):
-                try:
-                    actual_kwh = float(state.state)
-                    if actual_kwh > 0:
-                        params.append(f"actual={actual_kwh}")
-                except (ValueError, TypeError):
-                    pass
+        if feature_actual_on:
+            actual_entity = string_cfg.get("actual_entity", "")
+            if actual_entity:
+                state = self.hass.states.get(actual_entity)
+                if state and state.state not in ("unknown", "unavailable"):
+                    try:
+                        actual_kwh = float(state.state)
+                        if actual_kwh > 0:
+                            params.append(f"actual={actual_kwh}")
+                    except (ValueError, TypeError):
+                        pass
 
         return f"{base}{path}?{'&'.join(params)}"
 
@@ -425,12 +426,13 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
     async def _fetch_string(
         self, session: aiohttp.ClientSession, string_cfg: dict
     ) -> StringForecastData:
-        url = self._build_estimate_url(string_cfg)
-        _LOGGER.debug("Fetching solar forecast for %s: %s", string_cfg["name"], url)
+        """Fetch forecast for a single string."""
+        url = self._build_string_url(string_cfg)
+        _LOGGER.debug("Fetching solar forecast for string '%s': %s", string_cfg["name"], url)
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
             if resp.status != 200:
-                raise UpdateFailed(f"HTTP {resp.status} for string {string_cfg['name']}")
-            data = await resp.json()
+                raise UpdateFailed(f"HTTP {resp.status} for string '{string_cfg['name']}'")
+            data = await resp.json(content_type=None)
         if "error" in data and data.get("error"):
             raise UpdateFailed(data.get("message", "Unknown error"))
         return StringForecastData(data, string_cfg["name"])
@@ -476,11 +478,10 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         strings_cfg = self._get_strings()
         try:
             async with aiohttp.ClientSession() as session:
-                # Fetch all strings
-                string_data = []
-                for cfg in strings_cfg:
-                    data = await self._fetch_string(session, cfg)
-                    string_data.append(data)
+                # Fetch each string separately so per-string sensors have data
+                string_results = await asyncio.gather(
+                    *[self._fetch_string(session, s) for s in strings_cfg]
+                )
 
                 # Fetch weather (optional, needs API key with feature)
                 weather = await self._fetch_weather(session)
@@ -488,7 +489,7 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
                 # Fetch horizon (always available)
                 horizon = await self._fetch_horizon(session)
 
-            return SolarForecastData(string_data, weather, horizon=horizon)
+            return SolarForecastData(list(string_results), weather, horizon=horizon)
 
         except aiohttp.ClientError as err:
             raise UpdateFailed(f"Connection error: {err}") from err

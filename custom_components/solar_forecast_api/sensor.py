@@ -316,6 +316,7 @@ async def async_setup_entry(
     has_weather = (FEATURE_WEATHER in api_features and
                    cfg.get(CONF_FEATURE_WEATHER, True))
 
+    cfg_base = cfg  # save before loop overwrites it
     entities: list[SensorEntity] = []
 
     # ── Total sensors (always created, filtered by min_days) ──
@@ -325,14 +326,14 @@ async def async_setup_entry(
                 coordinator, entry, sensor_type, cfg, name
             ))
 
-    # ── Per-string sensors (only if more than 1 string) ──
+    # ── Per-string sensors (only if more than 1 string configured) ──
     if string_count > 1:
-        for i in range(1, string_count + 1):
-            string_label = cfg.get(conf_string_name(i), f"String {i}")
-            for sensor_type, cfg in PRODUCTION_SENSORS.items():
-                if configured_days >= cfg.get("min_days", 1):
+        for idx in range(string_count):
+            str_label = cfg_base.get(f"string_{idx+1}_name", f"String {idx+1}")
+            for sensor_type, scfg in PRODUCTION_SENSORS.items():
+                if configured_days >= scfg.get("min_days", 1):
                     entities.append(SolarForecastStringSensor(
-                        coordinator, entry, sensor_type, cfg, name, string_label, i - 1
+                        coordinator, entry, sensor_type, scfg, name, str_label, idx
                     ))
 
     # ── Weather sensors (only if API key has weather feature) ──
