@@ -428,11 +428,14 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
     ) -> StringForecastData:
         """Fetch forecast for a single string."""
         url = self._build_string_url(string_cfg)
-        _LOGGER.debug("Fetching solar forecast for string '%s': %s", string_cfg["name"], url)
+        _LOGGER.warning("Fetching solar forecast for string '%s': %s", string_cfg["name"], url)
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
             if resp.status != 200:
                 raise UpdateFailed(f"HTTP {resp.status} for string '{string_cfg['name']}'")
             data = await resp.json(content_type=None)
+        _LOGGER.warning("String '%s' raw keys: %s", string_cfg["name"], list(data.keys()))
+        result = data.get("result", {})
+        _LOGGER.warning("String '%s' watt_hours_day: %s", string_cfg["name"], result.get("watt_hours_day", {}))
         if "error" in data and data.get("error"):
             raise UpdateFailed(data.get("message", "Unknown error"))
         return StringForecastData(data, string_cfg["name"])
@@ -479,9 +482,19 @@ class SolarForecastCoordinator(DataUpdateCoordinator[SolarForecastData]):
         try:
             async with aiohttp.ClientSession() as session:
                 # Fetch each string separately so per-string sensors have data
-                string_results = await asyncio.gather(
-                    *[self._fetch_string(session, s) for s in strings_cfg]
+                string_results_raw = await asyncio.gather(
+                    *[self._fetch_string(session, s) for s in strings_cfg],
+                    return_exceptions=True,
                 )
+                # Filter out failed strings with logging, keep successful ones
+                string_results = []
+                for i, result in enumerate(string_results_raw):
+                    if isinstance(result, Exception):
+                        _LOGGER.error("String %d fetch failed: %s", i + 1, result)
+                        # Create empty placeholder so indexes stay consistent
+                        string_results.append(StringForecastData({}, strings_cfg[i]["name"]))
+                    else:
+                        string_results.append(result)
 
                 # Fetch weather (optional, needs API key with feature)
                 weather = await self._fetch_weather(session)
