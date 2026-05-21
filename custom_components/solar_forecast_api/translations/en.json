@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Solar Forecast API – basic setup",
+        "description": "Enter basic parameters. Without API key: 1 string, 1 day forecast, 60-min interval.",
+        "data": {
+          "name": "Name",
+          "api_key": "API key (optional)",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "string_count": "Number of strings (1–10)",
+          "update_interval": "Update interval"
+        },
+        "data_description": {
+          "api_key": "After entering a key, available features (weather, calibration, timewindows) are loaded automatically.",
+          "string_count": "Without an API key only 1 string is allowed."
+        }
+      },
+      "string": {
+        "title": "String {index} of {total}",
+        "description": "Enter parameters for string {index}.",
+        "data": {
+          "str_name": "String name (e.g. East, West, South)",
+          "str_declination": "Panel tilt [°] (0 = horiz., 90 = vert.)",
+          "str_azimuth": "Azimuth [°] (0 = south, −90 = east, 90 = west)",
+          "str_wp": "Installed power [Wp]",
+          "str_actual_entity": "Daily production sensor for calibration (optional)",
+          "str_correction": "Correction factor (optional, 0.1–2.0; empty = auto)"
+        }
+      },
+      "advanced": {
+        "title": "Advanced settings",
+        "description": "Available features for your API key: {features}",
+        "data": {
+          "days": "Forecast days",
+          "resolution": "Calculation resolution",
+          "damping": "Morning/evening damping (0 = off, 1 = maximum)",
+          "no_horizon": "Disable PVGIS horizon (not recommended)",
+          "feature_weather": "Enable weather forecast (weather)",
+          "feature_actual": "Enable calibration via actual production (actual)",
+          "feature_calibration": "Enable calibration data storage (calibration)",
+          "feature_timewindows": "Enable surplus time windows (timewindows)"
+        },
+        "data_description": {
+          "damping": "Reduces estimated output at low solar angles. 0.5 is recommended."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the API server forecast.xnas.cz",
+      "interval_requires_key": "Intervals shorter than 60 minutes require an API key.",
+      "invalid_api_key": "Invalid API key or key has no permitted features."
+    },
+    "abort": {
+      "already_configured": "This configuration already exists"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit settings",
+        "description": "Change name, API key, number of strings or update interval.",
+        "data": {
+          "name": "Name",
+          "api_key": "API key (optional)",
+          "string_count": "Number of strings (1–10)",
+          "update_interval": "Update interval",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        },
+        "data_description": {
+          "api_key": "Changing the key will re-fetch available features from the API."
+        }
+      },
+      "string": {
+        "title": "String {index} of {total}",
+        "description": "Edit parameters for string {index}.",
+        "data": {
+          "str_name": "String name",
+          "str_declination": "Panel tilt [°]",
+          "str_azimuth": "Azimuth [°]",
+          "str_wp": "Installed power [Wp]",
+          "str_actual_entity": "Daily production sensor for calibration (optional)",
+          "str_correction": "Correction factor (optional)"
+        }
+      },
+      "advanced": {
+        "title": "Advanced settings",
+        "description": "Available features for your API key: {features}",
+        "data": {
+          "days": "Forecast days",
+          "resolution": "Calculation resolution",
+          "damping": "Morning/evening damping",
+          "no_horizon": "Disable PVGIS horizon",
+          "feature_weather": "Enable weather forecast (weather)",
+          "feature_actual": "Enable calibration via actual production (actual)",
+          "feature_calibration": "Enable calibration data storage (calibration)",
+          "feature_timewindows": "Enable surplus time windows (timewindows)"
+        }
+      }
+    },
+    "error": {
+      "interval_requires_key": "Intervals shorter than 60 minutes require an API key.",
+      "invalid_api_key": "Invalid API key or key has no permitted features."
+    }
+  }
+}

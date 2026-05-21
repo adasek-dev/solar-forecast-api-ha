@@ -1,0 +1,11 @@
+{
+  "domain": "solar_forecast_api",
+  "name": "Solar Forecast API",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/xnas-cz/solar-forecast-api-ha",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "",
+  "requirements": [],
+  "version": "1.9.0"
+}
